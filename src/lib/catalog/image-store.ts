@@ -41,7 +41,8 @@ async function download(url: URL): Promise<{ bytes: Buffer; contentType: string 
 }
 
 export const blobImageStore: ImageStore = {
-  configured: () => Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+  // A classic read-write token, or the newer store id (Vercel signs in with its own OIDC token).
+  configured: () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || (process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN)),
 
   async preserve(url) {
     const source = isPublicHttps(url);
