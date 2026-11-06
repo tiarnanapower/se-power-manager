@@ -37,6 +37,10 @@ export class PostgresCredentialsStore implements CredentialsStore {
     throw unavailableError();
   }
 
+  async getUserEmail(_userId: number): Promise<string | undefined> {
+    throw unavailableError();
+  }
+
   async isStoreUserLinked(_storeHash: string, _userId: number): Promise<boolean> {
     throw unavailableError();
   }

@@ -123,6 +123,14 @@ export class D1CredentialsStore implements CredentialsStore {
     });
   }
 
+  async getUserEmail(userId: number): Promise<string | undefined> {
+    return withDatabaseErrorHandling("getUserEmail", async () => {
+      const row = await this.db.prepare("SELECT email FROM users WHERE user_id = ?").bind(userId).first<{ email: string }>();
+
+      return row?.email;
+    });
+  }
+
   async isStoreUserLinked(storeHash: string, userId: number): Promise<boolean> {
     return withDatabaseErrorHandling("isStoreUserLinked", async () => {
       const row = await this.db

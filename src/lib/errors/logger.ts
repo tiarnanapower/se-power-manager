@@ -43,7 +43,7 @@ export function logRateLimitRetry(details: {
   );
 }
 
-// Who changed what in the store, written for every applied copilot change.
+// Who changed what in the store, written for every applied change.
 // Never include tokens or customer data; ids and field names only.
 export function logAudit(action: string, details: Record<string, unknown>): void {
   console.info(`[audit] ${action}`, JSON.stringify(details));

@@ -44,6 +44,7 @@ export interface CredentialsStore {
   setStoreExtension(storeExtension: StoreExtensionRecord): Promise<void>;
   getStoreExtension(storeHash: string): Promise<string | undefined>;
   isStoreUserLinked(storeHash: string, userId: number): Promise<boolean>;
+  getUserEmail(userId: number): Promise<string | undefined>;
   deleteStore(storeHash: string): Promise<void>;
   deleteUser(storeHash: string, userId: number): Promise<void>;
 }

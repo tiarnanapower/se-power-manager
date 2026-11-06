@@ -1,37 +1,43 @@
-# Promo Calendar for BigCommerce
+# SE Power Manager
 
-A marketing calendar and promotion scheduler that installs into a BigCommerce
-store. It shows every live and scheduled promotion on one timeline, lets you
-create and edit promotions by chatting with an AI copilot, views promotions by
-customer audience, recommends what to run next, and previews how a promotion
-looks on the storefront.
+A private BigCommerce single-click app for solutions engineers: import and manage
+demo catalogs, and pull the shared Big Gear demo store (products, Stencil theme,
+custom B2B Catalyst channel) into your own store.
 
-> Status: early build. See [docs/PLAN.md](docs/PLAN.md) for scope and roadmap.
+Scaffolded from the Power Promotions starter. Read `docs/PLAN.md` for scope and
+status, `docs/ARCHITECTURE.md` for the auth and data layers.
 
-## Built on
-
-The BigCommerce single-click app starter
-([`bigcommerce-edu/starter-sc-app-next`](https://github.com/bigcommerce-edu/starter-sc-app-next)):
-OAuth install and launch, signed sessions, per-store credentials, REST and
-GraphQL clients, BigDesign UI. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Run locally
+## Run locally (demo data, no store needed)
 
 ```bash
+nvm use            # Node 24
 pnpm install
-cp .env.example .env.local   # then fill in the values
-pnpm dev                     # http://localhost:3000
+pnpm dev
 ```
 
-`DATA_MODE=STATIC` with `STATIC_STORE_HASH` and `STATIC_STORE_TOKEN` runs
-against one store without installing the app. `DATA_MODE=MOCK` is the demo mode
-(no store). `DATA_MODE=MULTITENANT` is the installed app.
+`.env.local` defaults to `DATA_MODE=MOCK`. To try real calls against one store set
+`DATA_MODE=STATIC` with `STATIC_STORE_HASH` and `STATIC_STORE_TOKEN`.
 
-The API token needs: Marketing (modify), Products (read-only), Customers
-(read-only), Orders (read-only).
+## Configuration
 
-## Safety
+See `.env.example`. The parts specific to this app:
 
-The copilot never writes straight to a store. Every change is shown as a draft
-with a diff and applied only after you confirm; new promotions are created
-disabled. Secrets are server-side only.
+| Variable | Purpose |
+| --- | --- |
+| `BIG_GEAR_STORE_HASH`, `BIG_GEAR_ACCESS_TOKEN` | Read-only token for the shared Big Gear store |
+| `BIG_GEAR_B2B_TOKEN` | Only if B2B uses a different token |
+| `BIG_GEAR_B2B_REPO`, `BIG_GEAR_B2B_REPO_REF`, `GITHUB_TOKEN` | The custom B2B Catalyst repo (`owner/repo`) |
+| `PORTKEY_API_KEY`, `PORTKEY_MODEL` | AI gateway for Import and Enrich |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token. Pack images are copied there when a pack is saved, so a backup can restore pictures after the products are deleted |
+
+Install, OAuth and deployment variables are unchanged from the starter; see
+`docs/INSTALL-ON-VERCEL.md` and `docs/VERCEL-DEPLOYMENT.md`.
+
+## Checks
+
+```bash
+npx tsc --noEmit -p .
+pnpm lint
+pnpm test
+pnpm build
+```

@@ -21,12 +21,12 @@ export interface ToolDefinition {
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }
 
-export class CopilotError extends Error {}
+export class AiError extends Error {}
 
 const DEFAULT_BASE_URL = "https://api.portkey.ai/v1";
 const REQUEST_TIMEOUT_MS = 60_000;
 
-export function isCopilotConfigured(): boolean {
+export function isAiConfigured(): boolean {
   return Boolean(process.env.PORTKEY_API_KEY);
 }
 
@@ -37,7 +37,7 @@ export function getModel(): string {
 function buildHeaders(): Record<string, string> {
   const apiKey = process.env.PORTKEY_API_KEY;
 
-  if (!apiKey) throw new CopilotError("The AI copilot isn't configured. Add PORTKEY_API_KEY to the server environment.");
+  if (!apiKey) throw new AiError("The AI gateway isn't configured. Add PORTKEY_API_KEY to the server environment.");
 
   return { "Content-Type": "application/json", "x-portkey-api-key": apiKey };
 }
@@ -88,17 +88,17 @@ export async function chatCompletion(params: { messages: ChatMessage[]; tools?: 
       response = await post(base, params.signal);
     }
   } catch (error) {
-    logError("copilot: gateway request", error);
+    logError("ai: gateway request", error);
 
-    throw new CopilotError("Couldn't reach the AI gateway. Check your connection and try again.");
+    throw new AiError("Couldn't reach the AI gateway. Check your connection and try again.");
   }
 
   if (!response.ok) {
     const detail = await readError(response);
 
-    logError("copilot: gateway error", `${response.status} ${detail}`);
+    logError("ai: gateway error", `${response.status} ${detail}`);
 
-    throw new CopilotError(
+    throw new AiError(
       response.status === 401 || response.status === 403
         ? "The AI gateway rejected the key. Check PORTKEY_API_KEY and the model access."
         : response.status === 429
@@ -110,7 +110,7 @@ export async function chatCompletion(params: { messages: ChatMessage[]; tools?: 
   const json = (await response.json()) as { choices?: Array<{ message?: ChatMessage }> };
   const message = json.choices?.[0]?.message;
 
-  if (!message) throw new CopilotError("The AI gateway returned an empty response.");
+  if (!message) throw new AiError("The AI gateway returned an empty response.");
 
   return message;
 }

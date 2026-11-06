@@ -147,6 +147,14 @@ export class SqliteCredentialsStore implements CredentialsStore {
     });
   }
 
+  async getUserEmail(userId: number): Promise<string | undefined> {
+    return withDatabaseErrorHandling("getUserEmail", () => {
+      const row = this.db.prepare("SELECT email FROM users WHERE user_id = ?").get(userId) as unknown as { email: string } | undefined;
+
+      return row?.email;
+    });
+  }
+
   async isStoreUserLinked(storeHash: string, userId: number): Promise<boolean> {
     return withDatabaseErrorHandling("isStoreUserLinked", () => {
       const row = this.db

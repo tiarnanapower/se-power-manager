@@ -3,7 +3,16 @@
 import "server-only";
 import { getRestApiClient } from "@/lib/bc-api-client/get-rest-api-client";
 import { logError } from "@/lib/errors/logger";
-import { isValidTimeZone } from "@/lib/promo-calendar/zone";
+
+function isValidTimeZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: zone });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface StoreInfo {
   name: string | null;

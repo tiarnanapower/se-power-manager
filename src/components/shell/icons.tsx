@@ -45,3 +45,12 @@ export const ExternalIcon = (p: IconProps) => (
 export const MenuIcon = (p: IconProps) => (
   <Svg {...p}><path d="M4 7h16M4 12h16M4 17h16" /></Svg>
 );
+export const BoxIcon = (p: IconProps) => (
+  <Svg {...p}><path d="M12 3 3.5 7.5v9L12 21l8.5-4.5v-9L12 3Z" /><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" /></Svg>
+);
+export const StoreIcon = (p: IconProps) => (
+  <Svg {...p}><path d="M4 9.5 5.5 4h13L20 9.5" /><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0" /><path d="M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" /></Svg>
+);
+export const ClockIcon = (p: IconProps) => (
+  <Svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></Svg>
+);

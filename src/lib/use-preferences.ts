@@ -44,3 +44,19 @@ export function useIsClient(): boolean {
     () => false,
   );
 }
+
+// Tracks a CSS media query, e.g. to minimise the sidebar on narrow screens.
+// False on the server and before hydration.
+export function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (callback) => {
+      const list = window.matchMedia(query);
+
+      list.addEventListener("change", callback);
+
+      return () => list.removeEventListener("change", callback);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}

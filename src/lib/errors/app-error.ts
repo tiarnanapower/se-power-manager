@@ -12,12 +12,16 @@ export class AppError extends Error {
   // responded with, so a caller can distinguish a 404 from any other
   // upstream failure without parsing the message/cause string.
   readonly status?: number;
+  // A short, upstream-supplied reason (e.g. BigCommerce's error title) that is
+  // safe to show a user. Only set for UPSTREAM_API errors that carried one.
+  readonly detail?: string;
 
-  constructor(code: AppErrorCode, message: string, options?: { cause?: unknown; status?: number }) {
+  constructor(code: AppErrorCode, message: string, options?: { cause?: unknown; status?: number; detail?: string }) {
     super(message, options);
     this.name = "AppError";
     this.code = code;
     this.status = options?.status;
+    this.detail = options?.detail;
   }
 }
 

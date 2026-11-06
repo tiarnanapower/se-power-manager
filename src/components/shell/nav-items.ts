@@ -1,29 +1,82 @@
+// Single source of truth for the sidebar, header titles and route stubs.
+// `path` is relative to the app root: "/store/<hash>/<path>" when installed,
+// "/<path>" on the root-level dev aliases.
+
+export type NavIcon = "catalog" | "store" | "health" | "activity" | "settings";
+
 export interface NavItem {
   id: string;
   title: string;
-  icon: "calendar" | "promotions" | "audiences" | "recommendations" | "settings";
-  // Section appears in the nav but its page isn't built yet.
-  soon?: boolean;
-  // Served at the app root as well as under its own path.
-  isIndex?: boolean;
-  group: "main" | "system";
+  path: string;
+  // One-line description shown at the top of the page.
+  description: string;
 }
 
-export const NAV_ITEMS: NavItem[] = [
-  { id: "calendar", title: "Calendar", icon: "calendar", isIndex: true, group: "main" },
-  { id: "promotions", title: "Promotions", icon: "promotions", group: "main" },
-  { id: "audiences", title: "Audiences", icon: "audiences", group: "main" },
-  { id: "recommendations", title: "Recommendations", icon: "recommendations", group: "main" },
-  { id: "settings", title: "Settings", icon: "settings", group: "system" },
+export interface NavGroup {
+  id: string;
+  title: string;
+  icon: NavIcon;
+  // Single-page groups (Store Health, Activity) render as a plain link.
+  items: NavItem[];
+  placement: "main" | "system";
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "catalog",
+    title: "Catalog",
+    icon: "catalog",
+    placement: "main",
+    items: [
+      { id: "shared-catalog", title: "Shared Catalog", path: "catalog/shared", description: "The team's library of saved product packs. Pull any pack into your demo store." },
+      { id: "import", title: "Import Tool", path: "catalog/import", description: "Point at a customer site and let AI scrape the products, then review and push them to your store." },
+      { id: "enrich", title: "Enrich Tool", path: "catalog/enrich", description: "Improve descriptions, SEO and attributes on products already in your store." },
+      { id: "restore", title: "Restore & Clear", path: "catalog/restore", description: "Save your catalog as a pack, restore one, or clear products in bulk." },
+    ],
+  },
+  {
+    id: "big-gear",
+    title: "Big Gear",
+    icon: "store",
+    placement: "main",
+    items: [
+      { id: "big-gear-products", title: "Product Import", path: "big-gear/products", description: "Copy products from the Big Gear demo store into your store." },
+      { id: "big-gear-stencil", title: "Stencil Channel Pull", path: "big-gear/stencil", description: "Pull the Big Gear Stencil channel theme into your store." },
+      { id: "big-gear-b2b", title: "Custom B2B Channel Pull", path: "big-gear/b2b", description: "Pull the custom B2B Catalyst channel, and optionally the Big Gear B2B data." },
+    ],
+  },
+  {
+    id: "store-health",
+    title: "Store Health",
+    icon: "health",
+    placement: "main",
+    items: [{ id: "store-health", title: "Store Health", path: "store-health", description: "Spot products with missing images, descriptions, stock or channel assignments." }],
+  },
+  {
+    id: "activity",
+    title: "Activity",
+    icon: "activity",
+    placement: "main",
+    items: [{ id: "activity", title: "Activity", path: "activity", description: "Everything this app has changed in your store, with undo where possible." }],
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    icon: "settings",
+    placement: "system",
+    items: [{ id: "settings", title: "Settings", path: "settings", description: "Connections, API scopes and AI configuration." }],
+  },
 ];
 
-// A store-scoped path is "/store/<hash>/<section>"; a root-level dev path has
-// its section first. No section segment means the index route.
-export function getActiveSection(pathname: string, storeHash: string | undefined): string | undefined {
+export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
+
+export const DEFAULT_PATH = "catalog/shared";
+
+// A store-scoped pathname is "/store/<hash>/<path>"; a root-level dev path is
+// "/<path>". Returns the matching nav item, if any.
+export function getActiveItem(pathname: string, storeHash: string | undefined): NavItem | undefined {
   const segments = pathname.split("/").filter(Boolean);
-  const section = storeHash ? segments[2] : segments[0];
+  const rest = (storeHash ? segments.slice(2) : segments).join("/");
 
-  if (!section) return NAV_ITEMS.find((item) => item.isIndex)?.id;
-
-  return NAV_ITEMS.some((item) => item.id === section) ? section : undefined;
+  return NAV_ITEMS.find((item) => item.path === (rest || DEFAULT_PATH));
 }

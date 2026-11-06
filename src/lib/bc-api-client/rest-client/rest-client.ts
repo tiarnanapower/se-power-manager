@@ -46,6 +46,22 @@ async function parseJsonResponse<TResponse>(response: Response, path: string): P
   }
 }
 
+// BigCommerce error bodies are JSON with a human-readable `title` (v3) or
+// `message` (v2). Returns a bounded copy so a caller can tell the user *why* a
+// write was rejected (duplicate SKU, invalid field) without leaking the body.
+async function readErrorTitle(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { title?: unknown; message?: unknown; errors?: unknown };
+    const base = typeof body.title === "string" ? body.title : typeof body.message === "string" ? body.message : undefined;
+    const errors = body.errors && typeof body.errors === "object" ? Object.values(body.errors as Record<string, unknown>).filter((value): value is string => typeof value === "string") : [];
+    const text = [base, ...errors].filter(Boolean).join(" ");
+
+    return text ? text.slice(0, 300) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Off by default (a developer diagnostic, gated by LOG_API_REQUESTS).
 function isApiRequestLoggingEnabled(): boolean {
   return process.env.LOG_API_REQUESTS?.toLowerCase() === "true";
@@ -153,6 +169,7 @@ export class RestApiClient implements BcRestApiClient {
       throw new AppError("UPSTREAM_API", `A BigCommerce API request failed.`, {
         cause: `${method} "${path}" failed with status ${response.status}.`,
         status: response.status,
+        detail: await readErrorTitle(response),
       });
     }
 

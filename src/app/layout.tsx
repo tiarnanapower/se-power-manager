@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
-import { Source_Sans_3 } from "next/font/google";
+import { Inter } from "next/font/google";
 import { BigDesignProvider } from "@/components/ui/big-design-provider";
 import { StyledComponentsRegistry } from "@/components/ui/styled-components-registry";
 import { ActionAlertsManager } from "@/components/ui/action-alerts";
 import "./globals.css";
 
-const sourceSans3 = Source_Sans_3({
+const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Power Promotions",
-  description: "Plan, schedule and preview BigCommerce promotions with an AI copilot.",
+  title: "SE Power Manager",
+  description: "Import, manage and restore demo catalogs on your BigCommerce store.",
 };
 
 export default function RootLayout({
@@ -20,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={sourceSans3.className}>
+    <html lang="en" className={inter.variable}>
       <body>
         <StyledComponentsRegistry>
           <BigDesignProvider>

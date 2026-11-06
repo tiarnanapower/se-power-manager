@@ -1,7 +1,6 @@
 import { DataModeBanner } from "@/components/layout/data-mode-banner";
 import { ShellFrame } from "@/components/shell/shell-frame";
 import { getDataMode } from "@/lib/bc-api-client/data-mode";
-import { isCopilotConfigured } from "@/lib/copilot/portkey";
 
 const MODE_LABEL: Record<string, string> = { MOCK: "Demo data", STATIC: "Static token", MULTITENANT: "Installed app" };
 
@@ -10,7 +9,7 @@ const MODE_LABEL: Record<string, string> = { MOCK: "Demo data", STATIC: "Static 
 // `children` takes to resolve. The interactive frame is a client component.
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <ShellFrame banner={<DataModeBanner />} modeLabel={MODE_LABEL[getDataMode()] ?? "Store"} copilotConfigured={isCopilotConfigured()}>
+    <ShellFrame banner={<DataModeBanner />} modeLabel={MODE_LABEL[getDataMode()] ?? "Store"}>
       {children}
     </ShellFrame>
   );

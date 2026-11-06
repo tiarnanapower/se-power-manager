@@ -2,52 +2,66 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { CalendarIcon, SettingsIcon, TagIcon, TrendIcon, UsersIcon } from "@/components/shell/icons";
+import { BoxIcon, ClockIcon, PulseIcon, SettingsIcon, StoreIcon } from "@/components/shell/icons";
 import { BRAND } from "@/components/shell/brand";
-import { getActiveSection, NAV_ITEMS, type NavItem } from "@/components/shell/nav-items";
+import { getActiveItem, NAV_GROUPS, type NavGroup, type NavIcon } from "@/components/shell/nav-items";
 import { getAppUrl } from "@/lib/routing/app-url";
 
-const ICONS: Record<NavItem["icon"], () => React.ReactNode> = {
-  calendar: () => <CalendarIcon />,
-  promotions: () => <TagIcon />,
-  audiences: () => <UsersIcon />,
-  recommendations: () => <TrendIcon />,
+const ICONS: Record<NavIcon, () => React.ReactNode> = {
+  catalog: () => <BoxIcon />,
+  store: () => <StoreIcon />,
+  health: () => <PulseIcon />,
+  activity: () => <ClockIcon />,
   settings: () => <SettingsIcon />,
 };
 
-export function SidebarNav() {
+export function SidebarNav({ collapsed = false }: { collapsed?: boolean }) {
   const params = useParams<{ storeHash?: string }>();
   const storeHash = params.storeHash;
-  const active = getActiveSection(usePathname(), storeHash);
+  const active = getActiveItem(usePathname(), storeHash);
 
-  const renderItem = (item: NavItem) => {
-    const content = (
-      <>
-        {ICONS[item.icon]()}
-        <span className="pp-nav__text">{item.title}</span>
-        {item.soon && <span className="pp-nav__soon">Soon</span>}
-      </>
-    );
+  const renderGroup = (group: NavGroup) => {
+    const single = group.items.length === 1;
 
-    if (item.soon) {
+    // Minimised: one icon per group, linking to its first page.
+    if (collapsed) {
+      const first = group.items[0];
+      const isActive = group.items.some((item) => item.id === active?.id);
+
       return (
-        <div key={item.id} className="pp-nav__item" aria-disabled="true" title={`${item.title} is coming soon`}>
-          {content}
-        </div>
+        <Link key={group.id} className="pp-nav__item pp-nav__item--rail" href={getAppUrl(storeHash, `/${first.path}`)} aria-current={isActive ? "page" : undefined} aria-label={group.title} title={group.title}>
+          {ICONS[group.icon]()}
+        </Link>
       );
     }
 
     return (
-      <Link key={item.id} className="pp-nav__item" href={getAppUrl(storeHash, item.isIndex ? "/" : `/${item.id}`)} aria-current={item.id === active ? "page" : undefined}>
-        {content}
-      </Link>
+      <div key={group.id} className="pp-nav__group">
+        {single ? null : (
+          <div className="pp-nav__heading">
+            {ICONS[group.icon]()}
+            <span className="pp-nav__text">{group.title}</span>
+          </div>
+        )}
+        {group.items.map((item) => (
+          <Link
+            key={item.id}
+            className={single ? "pp-nav__item" : "pp-nav__item pp-nav__item--sub"}
+            href={getAppUrl(storeHash, `/${item.path}`)}
+            aria-current={item.id === active?.id ? "page" : undefined}
+          >
+            {single ? ICONS[group.icon]() : null}
+            <span className="pp-nav__text">{item.title}</span>
+          </Link>
+        ))}
+      </div>
     );
   };
 
   return (
     <>
       <Link href={getAppUrl(storeHash, "/")} className="pp-brand" aria-label={BRAND.fullName}>
-        <span className="pp-brand__mark"><TagIcon size={18} /></span>
+        <span className="pp-brand__mark"><BoxIcon size={18} /></span>
         <span className="pp-brand__text">
           <span className="pp-brand__name">{BRAND.name}</span>
           <br />
@@ -55,10 +69,9 @@ export function SidebarNav() {
         </span>
       </Link>
       <nav className="pp-nav" aria-label="Main">
-        <div className="pp-nav__label">Plan</div>
-        {NAV_ITEMS.filter((item) => item.group === "main").map(renderItem)}
-        <div className="pp-nav__label">System</div>
-        {NAV_ITEMS.filter((item) => item.group === "system").map(renderItem)}
+        {NAV_GROUPS.filter((group) => group.placement === "main").map(renderGroup)}
+        {!collapsed && <div className="pp-nav__label">System</div>}
+        {NAV_GROUPS.filter((group) => group.placement === "system").map(renderGroup)}
       </nav>
     </>
   );

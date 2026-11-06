@@ -118,6 +118,14 @@ export class PostgresCredentialsStore implements CredentialsStore {
     });
   }
 
+  async getUserEmail(userId: number): Promise<string | undefined> {
+    return withDatabaseErrorHandling("getUserEmail", async () => {
+      const { rows } = await getPool().query<{ email: string }>("SELECT email FROM users WHERE user_id = $1", [userId]);
+
+      return rows[0]?.email;
+    });
+  }
+
   async isStoreUserLinked(storeHash: string, userId: number): Promise<boolean> {
     return withDatabaseErrorHandling("isStoreUserLinked", async () => {
       const pool = getPool();
