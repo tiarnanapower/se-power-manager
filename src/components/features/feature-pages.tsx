@@ -129,20 +129,6 @@ export async function BigGearB2bPage() {
 
 // ---- Store Health & Activity ----------------------------------------------
 
-export function StoreHealthPage() {
-  return (
-    <FeaturePage itemId="store-health">
-      <Planned
-        items={[
-          "Score your catalog and list products with no image, no description or zero stock.",
-          "Flag products not assigned to a channel, or hidden by mistake.",
-          "One-click fixes: hand the list to Enrich, or bulk-edit visibility and inventory.",
-        ]}
-      />
-    </FeaturePage>
-  );
-}
-
 export async function ActivityPage({ params }: { params: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = (await params).storeHash;
   const storeHash = Array.isArray(raw) ? raw[0] : raw;
