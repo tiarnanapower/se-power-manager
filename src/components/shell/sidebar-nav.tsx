@@ -61,7 +61,8 @@ export function SidebarNav({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <>
       <Link href={getAppUrl(storeHash, "/")} className="pp-brand" aria-label={BRAND.fullName}>
-        <span className="pp-brand__mark"><BoxIcon size={18} /></span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="pp-brand__logo" src="/brand/icon.svg" alt="" width={36} height={36} />
         <span className="pp-brand__text">
           <span className="pp-brand__name">{BRAND.name}</span>
           <br />

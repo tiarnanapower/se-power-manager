@@ -14,6 +14,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "SE Power Manager",
   description: "Import, manage and restore demo catalogs on your BigCommerce store.",
+  icons: { icon: "/brand/icon.svg" },
 };
 
 export default function RootLayout({

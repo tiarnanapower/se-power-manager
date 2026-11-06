@@ -633,3 +633,6 @@ body { background: var(--pp-bg); line-height: 1.5; }
   .pp-sidebar.is-collapsed .pp-brand { padding-bottom: 16px; }
   .pp-nav__item--rail { padding: 10px 0; }
 }
+
+.pp-brand__logo { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: block; }
+.pp-sidebar.is-collapsed .pp-brand__logo { width: 34px; height: 34px; }
