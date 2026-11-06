@@ -1,4 +1,7 @@
 import 'server-only';
+
+// The AI SDK prints deprecation notices on every call; they're noise in the server logs.
+(globalThis as { AI_SDK_LOG_WARNINGS?: boolean }).AI_SDK_LOG_WARNINGS = false;
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';

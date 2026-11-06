@@ -68,6 +68,20 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
+// The gateway sometimes answers 500/502/503/504 for a request that works a moment later, so
+// those are retried (twice) before being reported.
+async function postWithRetry(body: Record<string, unknown>, signal: AbortSignal | undefined): Promise<Response> {
+  let response = await post(body, signal);
+
+  for (let attempt = 1; attempt <= 2 && response.status >= 500 && response.status <= 504; attempt += 1) {
+    logError("ai: gateway error, retrying", `${response.status} (attempt ${attempt})`);
+    await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    response = await post(body, signal);
+  }
+
+  return response;
+}
+
 // One model turn. Reasoning effort is kept low for snappy replies; if the
 // gateway or model rejects that parameter the call is retried without it.
 export async function chatCompletion(params: { messages: ChatMessage[]; tools?: ToolDefinition[]; json?: boolean; signal?: AbortSignal }): Promise<ChatMessage> {
@@ -82,10 +96,10 @@ export async function chatCompletion(params: { messages: ChatMessage[]; tools?: 
   let response: Response;
 
   try {
-    response = await post({ ...base, reasoning_effort: effort }, params.signal);
+    response = await postWithRetry({ ...base, reasoning_effort: effort }, params.signal);
 
     if (response.status === 400 && (await response.clone().text()).includes("reasoning_effort")) {
-      response = await post(base, params.signal);
+      response = await postWithRetry(base, params.signal);
     }
   } catch (error) {
     logError("ai: gateway request", error);
