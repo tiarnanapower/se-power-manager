@@ -54,6 +54,7 @@ export const memoryAppDataStore: AppDataStore = {
     return [...state().packs.values()]
       .filter((pack) => options.published === undefined || (pack.publishedAt !== null) === options.published)
       .filter((pack) => options.includeBackups !== false || pack.source !== "backup")
+      .filter((pack) => options.ownedBy === undefined || pack.storeHash === options.ownedBy)
       .map(summarize)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },

@@ -16,6 +16,7 @@ import {
   savePackFromStore,
   startClear,
 } from "@/lib/catalog/operations";
+import { assertOwns } from "@/lib/catalog/pack-access";
 import { AppError } from "@/lib/errors/app-error";
 import type { PackSummary } from "@/lib/app-data/types";
 
@@ -73,8 +74,8 @@ export async function clearBatchAction(storeHash: unknown, input: unknown): Prom
   return runStoreAction(storeHash, "clearBatchAction", async (ctx) => ({ batch: await clearBatch(ctx, parsed.data) }));
 }
 
-// Packs are a shared library, so only the person who saved one (or anyone, for
-// packs with no recorded owner) can delete it.
+// Only the store that saved a pack can delete it, and within it only the person who
+// saved it (or anyone, for packs with no recorded person).
 export async function deletePackAction(storeHash: unknown, input: unknown): Promise<Outcome<{ deleted: true }>> {
   const parsed = z.object({ packId }).safeParse(input);
 
@@ -84,6 +85,9 @@ export async function deletePackAction(storeHash: unknown, input: unknown): Prom
     const page = await ctx.data.getPackPage(parsed.data.packId, 0, 1);
 
     if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.");
+
+    assertOwns(page.pack, ctx.storeHash);
+
     if (page.pack.createdByEmail && page.pack.createdByEmail !== ctx.userEmail) throw new AppError("AUTH", `Only ${page.pack.createdByEmail} can delete this pack.`);
 
     await ctx.data.deletePack(parsed.data.packId);

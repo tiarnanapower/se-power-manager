@@ -8,6 +8,7 @@ import { countProducts, createModifiers, createProduct, fetchProductSummary, del
 import { blobImageStore } from "@/lib/catalog/image-store";
 import { checkImageReachable, collectImageUrls, dropDeadImages, isBlobUrl, type ImageCheck, type ImageStore, looksLikeImageError, rewriteProductImages, withoutImages } from "@/lib/catalog/images";
 import { buildCategoryPaths, toCreatePayload, toModifierPayloads, toPackProduct, type PackProductRaw } from "@/lib/catalog/pack-mapper";
+import { assertCanUse, assertOwns } from "@/lib/catalog/pack-access";
 import { NameResolver } from "@/lib/catalog/resolvers";
 import { CLEAR_BATCH_SIZE, CLEAR_CONFIRMATION, IMAGE_BATCH_SIZE, MAX_PACK_PRODUCTS, RESTORE_BATCH_SIZE } from "@/lib/catalog/constants";
 import { AppError } from "@/lib/errors/app-error";
@@ -62,6 +63,7 @@ export async function savePackFromStore(ctx: OpsContext, options: { name: string
     description: options.description,
     source: options.source ?? "store",
     createdByEmail: userEmail,
+    storeHash,
     products: packProducts,
     imagesState,
   });
@@ -104,6 +106,9 @@ export async function preserveImages(ctx: DataContext, options: { packId: string
   const page = await data.getPackPage(options.packId, options.offset, limit);
 
   if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.");
+
+  assertOwns(page.pack, ctx.storeHash);
+
   if (!store.configured()) throw new AppError("VALIDATION", "Image storage isn't configured. Set BLOB_READ_WRITE_TOKEN on the server.");
 
   const urls = [...new Set(page.products.flatMap(collectImageUrls))].filter((url) => !isBlobUrl(url));
@@ -143,6 +148,8 @@ export async function finalizeImages(ctx: DataContext, packId: string): Promise<
     const page = await data.getPackPage(packId, offset, PAGE);
 
     if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.");
+
+    assertOwns(page.pack, ctx.storeHash);
 
     name = page.pack.name;
 
@@ -213,6 +220,8 @@ export async function restoreBatch(ctx: OpsContext, options: { packId: string; o
   const page = await data.getPackPage(options.packId, options.offset, limit);
 
   if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.");
+
+  assertCanUse(page.pack, storeHash);
 
   const resolver = new NameResolver(client);
   const result: RestoreBatchResult = { total: page.pack.productCount, nextOffset: options.offset + page.products.length, created: 0, skipped: 0, failed: 0, imagesMissing: 0, differences: [], errors: [], done: false };
@@ -364,6 +373,8 @@ export async function clearBatch(ctx: OpsContext, options: { backupPackId: strin
   const backup = await data.getPackPage(options.backupPackId, 0, 1);
 
   if (!backup) throw new AppError("VALIDATION", "Clearing requires a saved backup pack first.");
+
+  assertOwns(backup.pack, storeHash);
   if (backup.pack.imagesState === "pending") throw new AppError("VALIDATION", "The backup's images haven't been copied yet. Finish that first so they aren't lost.");
 
   await deleteProducts(client, options.ids);

@@ -15,6 +15,7 @@ const SCHEMA = `
     description TEXT NOT NULL DEFAULT '',
     source TEXT NOT NULL,
     created_by_email TEXT,
+    store_hash TEXT,
     created_at TEXT NOT NULL,
     published_at TEXT,
     published_by TEXT,
@@ -72,6 +73,7 @@ function guard<T>(context: string, run: () => T): T {
 function addMissingColumns(db: DatabaseSync): void {
   const have = new Set((db.prepare("PRAGMA table_info(packs)").all() as unknown as { name: string }[]).map((column) => column.name));
 
+  if (!have.has("store_hash")) db.exec("ALTER TABLE packs ADD COLUMN store_hash TEXT");
   if (!have.has("published_at")) db.exec("ALTER TABLE packs ADD COLUMN published_at TEXT");
   if (!have.has("published_by")) db.exec("ALTER TABLE packs ADD COLUMN published_by TEXT");
 
@@ -112,6 +114,7 @@ interface PackRow {
   description: string;
   source: PackSummary["source"];
   created_by_email: string | null;
+  store_hash: string | null;
   created_at: string;
   published_at: string | null;
   published_by: string | null;
@@ -132,7 +135,7 @@ interface ActivityRow {
 }
 
 function toSummary(row: PackRow): PackSummary {
-  return { id: row.id, name: row.name, description: row.description, source: row.source, productCount: row.product_count ?? 0, createdByEmail: row.created_by_email, createdAt: row.created_at, publishedAt: row.published_at, publishedBy: row.published_by, preview: parsePreview(row.preview), imagesState: row.images_state ?? "skipped" };
+  return { id: row.id, name: row.name, description: row.description, source: row.source, productCount: row.product_count ?? 0, createdByEmail: row.created_by_email, storeHash: row.store_hash ?? null, createdAt: row.created_at, publishedAt: row.published_at, publishedBy: row.published_by, preview: parsePreview(row.preview), imagesState: row.images_state ?? "skipped" };
 }
 
 function toActivity(row: ActivityRow): ActivityEntry {
@@ -158,8 +161,14 @@ export class SqliteAppDataStore implements AppDataStore {
     });
   }
 
-  async listPacks(options: { published?: boolean; includeBackups?: boolean } = {}): Promise<PackSummary[]> {
+  async listPacks(options: { published?: boolean; includeBackups?: boolean; ownedBy?: string } = {}): Promise<PackSummary[]> {
     const where: string[] = [];
+    const args: string[] = [];
+
+    if (options.ownedBy !== undefined) {
+      where.push("p.store_hash = ?");
+      args.push(options.ownedBy);
+    }
 
     if (options.published !== undefined) where.push(options.published ? "p.published_at IS NOT NULL" : "p.published_at IS NULL");
     if (options.includeBackups === false) where.push("p.source <> 'backup'");
@@ -167,7 +176,7 @@ export class SqliteAppDataStore implements AppDataStore {
     return guard("listPacks", () =>
       (this.db
         .prepare(`SELECT p.*, (SELECT COUNT(*) FROM pack_products WHERE pack_id = p.id) AS product_count FROM packs p ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY p.created_at DESC`)
-        .all() as unknown as PackRow[]).map(toSummary),
+        .all(...args) as unknown as PackRow[]).map(toSummary),
     );
   }
 
@@ -221,14 +230,14 @@ export class SqliteAppDataStore implements AppDataStore {
       const imagesState = input.imagesState ?? "skipped";
 
       inTransaction(this.db, () => {
-        this.db.prepare("INSERT INTO packs (id, name, description, source, created_by_email, created_at, preview, images_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(id, input.name, input.description, input.source, input.createdByEmail, createdAt, JSON.stringify(preview), imagesState);
+        this.db.prepare("INSERT INTO packs (id, name, description, source, created_by_email, store_hash, created_at, preview, images_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, input.name, input.description, input.source, input.createdByEmail, input.storeHash, createdAt, JSON.stringify(preview), imagesState);
 
         const insert = this.db.prepare("INSERT INTO pack_products (pack_id, position, payload) VALUES (?, ?, ?)");
 
         input.products.forEach((product, index) => insert.run(id, index, JSON.stringify(product)));
       });
 
-      return { id, name: input.name, description: input.description, source: input.source, productCount: input.products.length, createdByEmail: input.createdByEmail, createdAt, publishedAt: null, publishedBy: null, preview, imagesState };
+      return { id, name: input.name, description: input.description, source: input.source, productCount: input.products.length, createdByEmail: input.createdByEmail, storeHash: input.storeHash, createdAt, publishedAt: null, publishedBy: null, preview, imagesState };
     });
   }
 

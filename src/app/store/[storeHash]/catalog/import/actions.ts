@@ -35,12 +35,13 @@ export async function saveImportPackAction(storeHash: unknown, input: unknown): 
 
   if (!parsed.success) return { ok: false, message: "Give the pack a name and keep at least one product." };
 
-  return runLocalAction(storeHash, "saveImportPackAction", async ({ data, userEmail }) => ({
+  return runLocalAction(storeHash, "saveImportPackAction", async ({ data, userEmail, storeHash: ownerStore }) => ({
     pack: await data.savePack({
       name: parsed.data.name,
       description: `Scraped from ${[...new Set(parsed.data.products.map((product) => new URL(product.sourceUrl).hostname))].join(", ")}`,
       source: "scrape",
       createdByEmail: userEmail,
+      storeHash: ownerStore,
       products: parsed.data.products.map(toPackProduct),
     }),
   }));

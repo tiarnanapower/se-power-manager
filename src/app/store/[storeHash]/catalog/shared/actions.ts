@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { type Outcome, runLocalAction } from "@/lib/actions/run-action";
 import type { PackSummary } from "@/lib/app-data/types";
+import { assertOwns } from "@/lib/catalog/pack-access";
 import { AppError } from "@/lib/errors/app-error";
 
 const packId = z.string().min(1).max(64);
@@ -24,6 +25,9 @@ export async function publishPackAction(storeHash: unknown, input: unknown): Pro
     const existing = await ctx.data.getPackPage(parsed.data.packId, 0, 1);
 
     if (!existing) throw new AppError("NOT_FOUND", "That pack no longer exists.");
+
+    assertOwns(existing.pack, ctx.storeHash);
+
     if (existing.pack.source === "backup") throw new AppError("VALIDATION", "Automatic backups can't be published. Save the catalog as a pack first.");
     if (existing.pack.publishedAt) throw new AppError("VALIDATION", "That pack is already in the Shared Catalog.");
 
@@ -48,6 +52,9 @@ export async function unpublishPackAction(storeHash: unknown, input: unknown): P
     const existing = await ctx.data.getPackPage(parsed.data.packId, 0, 1);
 
     if (!existing) throw new AppError("NOT_FOUND", "That pack no longer exists.");
+
+    assertOwns(existing.pack, ctx.storeHash);
+
     if (existing.pack.createdByEmail && existing.pack.createdByEmail !== ctx.userEmail) throw new AppError("AUTH", `Only ${existing.pack.createdByEmail} can remove this pack from the Shared Catalog.`);
 
     await ctx.data.unpublishPack(parsed.data.packId);

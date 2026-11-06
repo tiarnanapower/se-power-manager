@@ -31,6 +31,9 @@ export interface PackSummary {
   source: PackSource;
   productCount: number;
   createdByEmail: string | null;
+  // The store that saved the pack. Packs are private to it until published; null for packs
+  // saved before ownership existed, which then show only once published.
+  storeHash: string | null;
   createdAt: string;
   // Set while the pack is listed in the Shared Catalog. publishedBy is the
   // display name the publisher chose, not an email.
@@ -93,7 +96,8 @@ export interface AppDataStore {
   deleteDocs(collection: string, storeHash: string, ids?: string[]): Promise<void>;
   // `published` filters by Shared Catalog state; omit for everything. Backups
   // are included unless `includeBackups` is false.
-  listPacks(options?: { published?: boolean; includeBackups?: boolean }): Promise<PackSummary[]>;
+  // `ownedBy` limits the list to packs saved by that store.
+  listPacks(options?: { published?: boolean; includeBackups?: boolean; ownedBy?: string }): Promise<PackSummary[]>;
   getPack(id: string): Promise<Pack | undefined>;
   // One slice of a pack's products, for restoring in batches.
   getPackPage(id: string, offset: number, limit: number): Promise<{ pack: PackSummary; products: PackProduct[] } | undefined>;

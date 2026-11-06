@@ -19,7 +19,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("SqliteAppDataStore", () => {
   it("creates its folder and round-trips a pack, in order, in pages", async () => {
-    const saved = await store.savePack({ name: "P", description: "d", source: "store", createdByEmail: "a@b.c", products: ["x", "y", "z"].map(product) });
+    const saved = await store.savePack({ name: "P", description: "d", source: "store", createdByEmail: "a@b.c", storeHash: "s1", products: ["x", "y", "z"].map(product) });
 
     expect(saved.productCount).toBe(3);
     expect((await store.listPacks())[0]).toMatchObject({ name: "P", productCount: 3, createdByEmail: "a@b.c" });
@@ -33,7 +33,7 @@ describe("SqliteAppDataStore", () => {
   });
 
   it("deleting a pack removes its products", async () => {
-    const saved = await store.savePack({ name: "P", description: "", source: "store", createdByEmail: null, products: [product("x")] });
+    const saved = await store.savePack({ name: "P", description: "", source: "store", createdByEmail: null, storeHash: "s1", products: [product("x")] });
 
     await store.deletePack(saved.id);
     expect(await store.listPacks()).toEqual([]);
@@ -68,7 +68,7 @@ describe("SqliteAppDataStore", () => {
 });
 
 describe("SqliteAppDataStore publishing", () => {
-  const input = (name: string, source: "store" | "backup" = "store") => ({ name, description: "orig", source, createdByEmail: "a@b.c", products: [product("x")] });
+  const input = (name: string, source: "store" | "backup" = "store") => ({ name, description: "orig", source, createdByEmail: "a@b.c", storeHash: "s1", products: [product("x")] });
 
   it("lists published packs with the publisher's name, and can filter and unpublish", async () => {
     const a = await store.savePack(input("A"));
@@ -125,6 +125,7 @@ describe("SqliteAppDataStore previews", () => {
       description: "",
       source: "store",
       createdByEmail: null,
+      storeHash: "s1",
       products: [{ ...product("Tent"), imageUrls: ["t.jpg"], categoryPaths: ["Outdoor > Tents"] }, { ...product("Lamp"), categoryPaths: [] }],
     });
 
@@ -154,8 +155,8 @@ describe("SqliteAppDataStore image state", () => {
   const withImage = (name: string, url: string): PackProduct => ({ ...product(name), imageUrls: [url] });
 
   it("defaults to skipped, can be saved as pending, and is returned by every read", async () => {
-    const plain = await store.savePack({ name: "A", description: "", source: "store", createdByEmail: null, products: [product("x")] });
-    const pending = await store.savePack({ name: "B", description: "", source: "store", createdByEmail: null, products: [product("x")], imagesState: "pending" });
+    const plain = await store.savePack({ name: "A", description: "", source: "store", createdByEmail: null, storeHash: "s1", products: [product("x")] });
+    const pending = await store.savePack({ name: "B", description: "", source: "store", createdByEmail: null, storeHash: "s1", products: [product("x")], imagesState: "pending" });
 
     expect(plain.imagesState).toBe("skipped");
     expect(pending.imagesState).toBe("pending");
@@ -164,7 +165,7 @@ describe("SqliteAppDataStore image state", () => {
   });
 
   it("rewrites products in place by position, and updates state and preview together", async () => {
-    const saved = await store.savePack({ name: "P", description: "", source: "store", createdByEmail: null, products: [withImage("a", "https://old/a.jpg"), withImage("b", "https://old/b.jpg"), withImage("c", "https://old/c.jpg")], imagesState: "pending" });
+    const saved = await store.savePack({ name: "P", description: "", source: "store", createdByEmail: null, storeHash: "s1", products: [withImage("a", "https://old/a.jpg"), withImage("b", "https://old/b.jpg"), withImage("c", "https://old/c.jpg")], imagesState: "pending" });
 
     await store.updatePackProducts(saved.id, 1, [withImage("b", "https://new/b.jpg"), withImage("c", "https://new/c.jpg")]);
     await store.setPackImages(saved.id, "preserved", { images: ["https://new/b.jpg"], categories: [], names: ["a"] });

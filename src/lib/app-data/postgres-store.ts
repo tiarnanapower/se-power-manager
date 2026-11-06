@@ -22,6 +22,7 @@ interface PackRow {
   description: string;
   source: PackSummary["source"];
   created_by_email: string | null;
+  store_hash: string | null;
   created_at: Date;
   published_at: Date | null;
   published_by: string | null;
@@ -42,7 +43,7 @@ interface ActivityRow {
 }
 
 function toSummary(row: PackRow): PackSummary {
-  return { id: row.id, name: row.name, description: row.description, source: row.source, productCount: Number(row.product_count ?? 0), createdByEmail: row.created_by_email, createdAt: row.created_at.toISOString(), publishedAt: row.published_at ? row.published_at.toISOString() : null, publishedBy: row.published_by, preview: parsePreview(row.preview), imagesState: row.images_state ?? "skipped" };
+  return { id: row.id, name: row.name, description: row.description, source: row.source, productCount: Number(row.product_count ?? 0), createdByEmail: row.created_by_email, storeHash: row.store_hash ?? null, createdAt: row.created_at.toISOString(), publishedAt: row.published_at ? row.published_at.toISOString() : null, publishedBy: row.published_by, preview: parsePreview(row.preview), imagesState: row.images_state ?? "skipped" };
 }
 
 function toActivity(row: ActivityRow): ActivityEntry {
@@ -80,14 +81,20 @@ export class PostgresAppDataStore implements AppDataStore {
     });
   }
 
-  async listPacks(options: { published?: boolean; includeBackups?: boolean } = {}): Promise<PackSummary[]> {
+  async listPacks(options: { published?: boolean; includeBackups?: boolean; ownedBy?: string } = {}): Promise<PackSummary[]> {
     const where: string[] = [];
+    const args: string[] = [];
+
+    if (options.ownedBy !== undefined) {
+      args.push(options.ownedBy);
+      where.push(`p.store_hash = $${args.length}`);
+    }
 
     if (options.published !== undefined) where.push(options.published ? "p.published_at IS NOT NULL" : "p.published_at IS NULL");
     if (options.includeBackups === false) where.push("p.source <> 'backup'");
 
     return guard("listPacks", async () => {
-      const { rows } = await getPool().query<PackRow>(`SELECT p.*, (SELECT COUNT(*) FROM pack_products WHERE pack_id = p.id) AS product_count FROM packs p ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY p.created_at DESC`);
+      const { rows } = await getPool().query<PackRow>(`SELECT p.*, (SELECT COUNT(*) FROM pack_products WHERE pack_id = p.id) AS product_count FROM packs p ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY p.created_at DESC`, args);
 
       return rows.map(toSummary);
     });
@@ -145,7 +152,7 @@ export class PostgresAppDataStore implements AppDataStore {
       try {
         await client.query("BEGIN");
 
-        const { rows } = await client.query<PackRow>("INSERT INTO packs (name, description, source, created_by_email, preview, images_state) VALUES ($1, $2, $3, $4, $5::jsonb, $6) RETURNING *", [input.name, input.description, input.source, input.createdByEmail, JSON.stringify(buildPackPreview(input.products)), input.imagesState ?? "skipped"]);
+        const { rows } = await client.query<PackRow>("INSERT INTO packs (name, description, source, created_by_email, store_hash, preview, images_state) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) RETURNING *", [input.name, input.description, input.source, input.createdByEmail, input.storeHash, JSON.stringify(buildPackPreview(input.products)), input.imagesState ?? "skipped"]);
         const pack = rows[0];
 
         for (let start = 0; start < input.products.length; start += PRODUCT_CHUNK) {

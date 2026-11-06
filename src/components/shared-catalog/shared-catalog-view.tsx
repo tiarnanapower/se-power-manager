@@ -10,6 +10,8 @@ import { getAppUrl } from "@/lib/routing/app-url";
 
 interface Props {
   storeHash: string | undefined;
+  // This store's identity as saved on its packs, so Remove only shows on its own.
+  ownStoreHash: string;
   published: PackSummary[];
   candidates: PackSummary[];
 }
@@ -110,7 +112,7 @@ function PublishForm({ storeHash, candidates }: Pick<Props, "storeHash" | "candi
   );
 }
 
-function PublishedList({ storeHash, published }: Pick<Props, "storeHash" | "published">) {
+function PublishedList({ storeHash, ownStoreHash, published }: Pick<Props, "storeHash" | "ownStoreHash" | "published">) {
   const router = useRouter();
   const [message, setMessage] = useState<Message>();
 
@@ -139,7 +141,7 @@ function PublishedList({ storeHash, published }: Pick<Props, "storeHash" | "publ
               actions={
                 <>
                   <Link className="pp-btn pp-btn--primary" href={getAppUrl(storeHash, `/catalog/restore?pack=${encodeURIComponent(pack.id)}#restore`)}>Use this pack</Link>
-                  <button type="button" className="pp-btn" onClick={() => unpublish(pack)}>Remove</button>
+                  {pack.storeHash === ownStoreHash && <button type="button" className="pp-btn" onClick={() => unpublish(pack)}>Remove</button>}
                 </>
               }
             />
@@ -151,10 +153,10 @@ function PublishedList({ storeHash, published }: Pick<Props, "storeHash" | "publ
   );
 }
 
-export function SharedCatalogView({ storeHash, published, candidates }: Props) {
+export function SharedCatalogView({ storeHash, ownStoreHash, published, candidates }: Props) {
   return (
     <>
-      <PublishedList storeHash={storeHash} published={published} />
+      <PublishedList storeHash={storeHash} ownStoreHash={ownStoreHash} published={published} />
       <PublishForm storeHash={storeHash} candidates={candidates} />
     </>
   );

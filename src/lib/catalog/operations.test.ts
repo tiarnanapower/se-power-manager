@@ -153,6 +153,16 @@ function context(client: FakeStore, storeHash = "src1", imageCheck: OpsContext["
   return { client, data: memoryAppDataStore, storeHash, userEmail: "se@example.com", imageCheck, imageStore };
 }
 
+// Packs are private to the store that saved them, so tests that restore a pack into a
+// different store publish it first, as a real user would from the Shared Catalog.
+async function savePublished(ctx: OpsContext, options: Parameters<typeof savePackFromStore>[1]) {
+  const pack = await savePackFromStore(ctx, options);
+
+  await memoryAppDataStore.publishPack(pack.id, { publishedBy: "test" });
+
+  return pack;
+}
+
 beforeEach(() => {
   (globalThis as { __sePowerManagerMemory?: unknown }).__sePowerManagerMemory = undefined;
 });
@@ -186,7 +196,7 @@ describe("restoreBatch", () => {
 
     seed(source);
 
-    const pack = await savePackFromStore(context(source), { name: "p", description: "" });
+    const pack = await savePublished(context(source), { name: "p", description: "" });
     const target = new FakeStore();
     const first = await restoreBatch(context(target, "dst1"), { packId: pack.id, offset: 0, limit: 2 });
 
@@ -208,7 +218,7 @@ describe("restoreBatch", () => {
     seed(source);
     source.products.push({ id: 4, name: "Tent 2", sku: "TENT-2", price: 1, type: "physical", weight: 1, brand_id: 200, categories: [101], variants: [] });
 
-    const pack = await savePackFromStore(context(source), { name: "p", description: "" });
+    const pack = await savePublished(context(source), { name: "p", description: "" });
     const target = new FakeStore();
 
     await restoreBatch(context(target, "dst1"), { packId: pack.id, offset: 0, limit: 1 });
@@ -223,7 +233,7 @@ describe("restoreBatch", () => {
 
     seed(source);
 
-    const pack = await savePackFromStore(context(source), { name: "p", description: "" });
+    const pack = await savePublished(context(source), { name: "p", description: "" });
     const target = new FakeStore();
 
     target.products.push({ id: 900, name: "Existing", sku: "SHIRT" });
@@ -247,7 +257,7 @@ describe("restore with images that no longer exist", () => {
       ...Object.entries(images).map(([name, urls], index) => ({ id: index + 1, name, sku: name, price: 1, type: "physical", weight: 1, categories: [], variants: [], images: urls.map((url, i) => ({ url_zoom: url, is_thumbnail: i === 0, sort_order: i })) }) as Row),
     );
 
-    return savePackFromStore(context(source), { name: "p", description: "" });
+    return savePublished(context(source), { name: "p", description: "" });
   }
 
   it("leaves out dead images, keeps live ones, and still creates the product", async () => {
@@ -330,7 +340,7 @@ describe("preserving images", () => {
   it("copies product and variant images in batches, rewrites the pack, and marks it partial when one was already gone", async () => {
     const images = fakeImageStore();
     const ctx = context(storeWithImages(), "src1", undefined, images);
-    const pack = await savePackFromStore(ctx, { name: "p", description: "" });
+    const pack = await savePublished(ctx, { name: "p", description: "" });
     const first = await preserveImages(ctx, { packId: pack.id, offset: 0, limit: 2 });
 
     expect(first).toMatchObject({ copied: 3, failed: 1, nextOffset: 2, done: false });
@@ -358,7 +368,7 @@ describe("preserving images", () => {
 
     const images = fakeImageStore();
     const ctx = context(source, "src1", undefined, images);
-    const pack = await savePackFromStore(ctx, { name: "p", description: "" });
+    const pack = await savePublished(ctx, { name: "p", description: "" });
 
     await preserveImages(ctx, { packId: pack.id, offset: 0 });
     const copiedOnce = images.copied.length;
@@ -370,7 +380,7 @@ describe("preserving images", () => {
 
   it("needs storage to be configured", async () => {
     const ctx = context(storeWithImages(), "src1", undefined, fakeImageStore(false));
-    const pack = await savePackFromStore(ctx, { name: "p", description: "" });
+    const pack = await savePublished(ctx, { name: "p", description: "" });
 
     await expect(preserveImages(ctx, { packId: pack.id, offset: 0 })).rejects.toThrow("BLOB_READ_WRITE_TOKEN");
   });
@@ -403,7 +413,8 @@ describe("preserving images", () => {
     // After the clear, the source CDN no longer has the pictures; only the copies do.
     const alive = async (url: string) => url.includes("blob.vercel-storage.com");
     const target = new FakeStore();
-    const result = await restoreBatch(context(target, "dst1", alive), { packId: started.backup!.id, offset: 0 });
+    // A backup is restored into the store that made it.
+    const result = await restoreBatch(context(target, "src1", alive), { packId: started.backup!.id, offset: 0 });
 
     expect(result).toMatchObject({ created: 3, failed: 0, imagesMissing: 0 });
     expect((target.products.find((p) => p.name === "Tent")?.images as unknown[]).length).toBe(1);
@@ -528,7 +539,7 @@ describe("restore fidelity", () => {
       variants: [{ id: 7, product_id: 1, sku: "TEE-S", price: 10, cost_price: 4, option_values: [{ id: 55, option_id: 77, option_display_name: "Size", label: "S" }] }],
     } as Row);
 
-    const pack = await savePackFromStore(context(source), { name: "fidelity", description: "" });
+    const pack = await savePublished(context(source), { name: "fidelity", description: "" });
     const target = new FakeStore();
     const result = await restoreBatch(context(target, "dst"), { packId: pack.id, offset: 0 });
     const row = target.products[0] as Record<string, unknown>;
@@ -540,5 +551,39 @@ describe("restore fidelity", () => {
     expect(row.modifiers).toEqual([{ type: "text", required: true, display_name: "Engraving", config: { text_max_length: 10 }, option_values: [] }]);
     expect(row.variants).toEqual([{ sku: "TEE-S", price: 10, cost_price: 4, option_values: [{ option_display_name: "Size", label: "S" }] }]);
     expect((row.images as { url_zoom: string }[]).map((image) => image.url_zoom)).toHaveLength(1);
+  });
+});
+
+describe("pack privacy between stores", () => {
+  function seededSource() {
+    const source = new FakeStore();
+
+    source.products.push({ id: 1, name: "Tee", sku: "TEE", price: 10, type: "physical", weight: 1, categories: [], variants: [], images: [] } as never);
+
+    return source;
+  }
+
+  it("keeps a pack private to the store that saved it", async () => {
+    const pack = await savePackFromStore(context(seededSource(), "storeA"), { name: "mine", description: "" });
+
+    expect((await memoryAppDataStore.listPacks({ ownedBy: "storeA" })).map((entry) => entry.id)).toEqual([pack.id]);
+    expect(await memoryAppDataStore.listPacks({ ownedBy: "storeB" })).toEqual([]);
+    await expect(restoreBatch(context(new FakeStore(), "storeB"), { packId: pack.id, offset: 0 })).rejects.toThrow("no longer exists");
+    await expect(preserveImages(context(new FakeStore(), "storeB"), { packId: pack.id, offset: 0 })).rejects.toThrow("no longer exists");
+  });
+
+  it("lets other stores restore a published pack but not change it", async () => {
+    const pack = await savePublished(context(seededSource(), "storeA"), { name: "shared", description: "" });
+    const other = context(new FakeStore(), "storeB");
+
+    expect(await restoreBatch(other, { packId: pack.id, offset: 0 })).toMatchObject({ created: 1, failed: 0 });
+    await expect(preserveImages(other, { packId: pack.id, offset: 0 })).rejects.toThrow("Only the store that saved");
+  });
+
+  it("won't clear a store using another store's backup", async () => {
+    const backup = await savePackFromStore(context(seededSource(), "storeA"), { name: "b", description: "" });
+    const other = context(seededSource(), "storeB");
+
+    await expect(clearBatch(other, { backupPackId: backup.id, scope: "all", ids: [1] })).rejects.toThrow();
   });
 });
