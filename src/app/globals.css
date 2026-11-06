@@ -636,3 +636,13 @@ body { background: var(--pp-bg); line-height: 1.5; }
 
 .pp-brand__logo { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: block; }
 .pp-sidebar.is-collapsed .pp-brand__logo { width: 34px; height: 34px; }
+
+/* A moving stripe so a bar that is waiting on the server still looks alive. */
+.pp-progress > span { transition: width 0.35s ease-out; }
+.pp-progress.is-active > span {
+  background-image: linear-gradient(110deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 70%);
+  background-size: 200% 100%; background-color: var(--cmrc-blue);
+  animation: pp-progress-sweep 1.3s linear infinite;
+}
+@keyframes pp-progress-sweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .pp-progress.is-active > span { animation: none; } }

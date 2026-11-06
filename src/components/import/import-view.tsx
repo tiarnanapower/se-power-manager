@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { restoreBatchAction } from "@/app/store/[storeHash]/catalog/restore/actions";
 import { saveImportPackAction, scrapeUrlAction } from "@/app/store/[storeHash]/catalog/import/actions";
 import type { ScrapedProduct } from "@/lib/import/scrape";
@@ -22,8 +22,26 @@ function Msg({ message }: { message: Message }) {
   return message ? <div role="status" className={`pp-msg ${message.ok ? "pp-msg--ok" : "pp-msg--err"}`}>{message.text}</div> : null;
 }
 
-function Progress({ done, total }: { done: number; total: number }) {
-  return <div className="pp-progress" aria-hidden="true"><span style={{ width: `${total ? Math.min(100, (done / total) * 100) : 0}%` }} /></div>;
+function Progress({ done, total, active, extra = 0 }: { done: number; total: number; active?: boolean; extra?: number }) {
+  const percent = total ? Math.min(100, ((done + extra) / total) * 100) : 0;
+
+  return <div className={`pp-progress${active ? " is-active" : ""}`} aria-hidden="true"><span style={{ width: `${percent}%` }} /></div>;
+}
+
+// One page takes a while (fetch, then the AI reads it), so the bar creeps toward the end of the
+// current page on an easing curve and the text says what stage it is in.
+const PAGE_ESTIMATE_SECONDS = 25;
+
+function pageFraction(elapsed: number): number {
+  return Math.min(0.92, 1 - Math.exp(-elapsed / PAGE_ESTIMATE_SECONDS));
+}
+
+function stageLabel(elapsed: number): string {
+  if (elapsed < 3) return "Loading the page";
+  if (elapsed < 8) return "Reading the page content";
+  if (elapsed < 45) return "AI is finding the products";
+
+  return "Still working. Big pages take longer";
 }
 
 const parseUrls = (text: string) => [...new Set(text.split(/\s+/).map((part) => part.trim()).filter(Boolean))].slice(0, 10);
@@ -41,7 +59,18 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
   const [pushProgress, setPushProgress] = useState({ done: 0, total: 0 });
   const [pushIssues, setPushIssues] = useState<string[]>([]);
   const [pushMessage, setPushMessage] = useState<Message>();
+  const [elapsed, setElapsed] = useState(0);
+  const pageStarted = useRef(0);
   const nextKey = useRef(0);
+  // Ticks while a page is being read, so the bar and stage text move before the answer arrives.
+  useEffect(() => {
+    if (!scraping) return;
+
+    const timer = setInterval(() => setElapsed(Math.round((Date.now() - pageStarted.current) / 100) / 10), 250);
+
+    return () => clearInterval(timer);
+  }, [scraping]);
+
   const kept = rows.filter((row) => row.keep && row.name.trim());
 
   const scrape = async () => {
@@ -59,6 +88,9 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
     const failed: string[] = [];
 
     for (const [index, url] of urls.entries()) {
+      pageStarted.current = Date.now();
+      setElapsed(0);
+
       try {
         const result = await scrapeUrlAction(storeHash, { url, limit });
 
@@ -145,7 +177,16 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
             <div className="pp-row">
               <button type="button" className="pp-btn pp-btn--primary" onClick={scrape} disabled={scraping || !aiConfigured}>{scraping ? "Scraping…" : "Scrape products"}</button>
             </div>
-            {(scraping || scrapeProgress.total > 0) && <><Progress done={scrapeProgress.done} total={scrapeProgress.total} /><div className="pp-muted" style={{ fontSize: 13 }}>{scrapeProgress.done} of {scrapeProgress.total} pages read</div></>}
+            {(scraping || scrapeProgress.total > 0) && (
+              <>
+                <Progress done={scrapeProgress.done} total={scrapeProgress.total} active={scraping} extra={scraping ? pageFraction(elapsed) : 0} />
+                <div className="pp-muted" style={{ fontSize: 13 }}>
+                  {scraping
+                    ? `Page ${Math.min(scrapeProgress.done + 1, scrapeProgress.total)} of ${scrapeProgress.total}: ${stageLabel(elapsed)} · ${Math.floor(elapsed)}s`
+                    : `${scrapeProgress.done} of ${scrapeProgress.total} pages read`}
+                </div>
+              </>
+            )}
             <Msg message={message} />
           </div>
         </div>
@@ -188,7 +229,7 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
             <button type="button" className="pp-btn" onClick={() => save(false)} disabled={pushing || kept.length === 0 || !packName.trim()}>Save as pack only</button>
             <button type="button" className="pp-btn" onClick={() => { setRows([]); setMessage(undefined); setPushMessage(undefined); }} disabled={pushing}>Clear results</button>
           </div>
-          {(pushing || pushProgress.total > 0) && <><Progress done={pushProgress.done} total={pushProgress.total} /><div className="pp-muted" style={{ fontSize: 13 }}>{pushProgress.done} of {pushProgress.total} processed</div></>}
+          {(pushing || pushProgress.total > 0) && <><Progress done={pushProgress.done} total={pushProgress.total} active={pushing} /><div className="pp-muted" style={{ fontSize: 13 }}>{pushProgress.done} of {pushProgress.total} processed</div></>}
           <Msg message={pushMessage} />
           {pushIssues.length > 0 && <ul className="pp-errlist">{pushIssues.map((issue, index) => <li key={`${issue}-${index}`}>{issue}</li>)}</ul>}
           <p className="pp-note">Pushing saves the products as a pack first, then creates them in your store. Categories and brands are matched by name and created if missing. Created products are tracked so &quot;Clear demo products&quot; can remove exactly these.</p>
