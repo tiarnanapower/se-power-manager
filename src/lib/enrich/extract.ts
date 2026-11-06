@@ -1,5 +1,4 @@
 import 'server-only';
-import { join } from 'node:path';
 import mammoth from 'mammoth';
 
 export type SourceKind = 'image' | 'document' | 'text';
@@ -52,22 +51,14 @@ function salvageText(buf: Buffer): string {
     .trim();
 }
 
-/** OCR a product image. Best-effort — packshots often carry no legible text at all. */
-export async function ocrImage(buf: Buffer): Promise<string> {
-  try {
-    const { createWorker } = await import('tesseract.js');
-    // Read the bundled language data rather than downloading it and caching to cwd,
-    // which is read-only on Vercel. next.config.ts traces ocr/ into the function.
-    const worker = await createWorker('eng', undefined, {
-      cachePath: join(process.cwd(), 'ocr'),
-      cacheMethod: 'readOnly',
-    });
-    const { data } = await worker.recognize(buf);
-    await worker.terminate();
-    return data.text.trim();
-  } catch {
-    return '';
-  }
+/**
+ * Text read from an image by a local OCR engine. Not used here: the vision model reads
+ * packaging and document text itself, and a bundled OCR engine (tesseract.js and its WASM
+ * and language data) breaks Vercel's function packaging under pnpm. Kept as a hook so
+ * `analyzeImageSource` doesn't change if an OCR step is added back.
+ */
+export async function ocrImage(_buf: Buffer): Promise<string> {
+  return '';
 }
 
 /**

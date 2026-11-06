@@ -56,26 +56,8 @@ const nextConfig: NextConfig = {
   compiler: {
     styledComponents: true,
   },
-  // Native and Node-only modules the Enrich Tool uses to read documents; they
-  // must not be bundled into the server build.
-  serverExternalPackages: ["pdf-parse", "tesseract.js"],
-  // Tesseract spawns its worker script and picks a WASM core at runtime, so
-  // static tracing can't see them; the language data is read from ocr/ instead
-  // of being downloaded.
-  outputFileTracingIncludes: {
-    "/store/[storeHash]/catalog/enrich": [
-      "./ocr/eng.traineddata",
-      "./node_modules/tesseract.js/src/**/*",
-      "./node_modules/tesseract.js-core/*.{js,wasm,json}",
-      "./node_modules/{wasm-feature-detect,zlibjs,bmp-js}/**/*",
-    ],
-    "/catalog/enrich": [
-      "./ocr/eng.traineddata",
-      "./node_modules/tesseract.js/src/**/*",
-      "./node_modules/tesseract.js-core/*.{js,wasm,json}",
-      "./node_modules/{wasm-feature-detect,zlibjs,bmp-js}/**/*",
-    ],
-  },
+  // Node-only module the Enrich Tool uses to read PDFs; it must not be bundled.
+  serverExternalPackages: ["pdf-parse"],
   experimental: {
     serverActions: {
       allowedOrigins,
