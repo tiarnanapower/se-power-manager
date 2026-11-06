@@ -74,7 +74,23 @@ export interface ActivityEntry {
 
 export type NewActivityEntry = Omit<ActivityEntry, "id" | "createdAt">;
 
+// A small JSON document, scoped to one store. Used for queues that are
+// worked on briefly (the Enrich Tool's analysis queue and its uploads) and
+// small enough to filter in code.
+export interface AppDoc {
+  id: string;
+  createdAt: string;
+  body: unknown;
+}
+
 export interface AppDataStore {
+  // Upserts a document (createdAt is kept when it already exists).
+  putDoc(collection: string, storeHash: string, id: string, body: unknown): Promise<void>;
+  getDoc(collection: string, storeHash: string, id: string): Promise<AppDoc | undefined>;
+  // Oldest first.
+  listDocs(collection: string, storeHash: string): Promise<AppDoc[]>;
+  // Without ids, removes the whole collection for the store.
+  deleteDocs(collection: string, storeHash: string, ids?: string[]): Promise<void>;
   // `published` filters by Shared Catalog state; omit for everything. Backups
   // are included unless `includeBackups` is false.
   listPacks(options?: { published?: boolean; includeBackups?: boolean }): Promise<PackSummary[]>;

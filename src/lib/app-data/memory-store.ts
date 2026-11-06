@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { buildPackPreview } from "@/lib/app-data/preview";
-import type { ActivityEntry, AppDataStore, Pack, PackSummary } from "@/lib/app-data/types";
+import type { ActivityEntry, AppDataStore, AppDoc, Pack, PackSummary } from "@/lib/app-data/types";
 
 interface MemoryState {
   packs: Map<string, Pack>;
   activity: ActivityEntry[];
   demoProducts: Map<string, Set<number>>;
+  docs: Map<string, AppDoc>;
 }
 
 // Survives dev-server module reloads. Not durable and not shared between
@@ -13,7 +14,7 @@ interface MemoryState {
 const globalState = globalThis as unknown as { __sePowerManagerMemory?: MemoryState };
 
 function state(): MemoryState {
-  globalState.__sePowerManagerMemory ??= { packs: new Map(), activity: [], demoProducts: new Map() };
+  globalState.__sePowerManagerMemory ??= { packs: new Map(), activity: [], demoProducts: new Map(), docs: new Map() };
 
   return globalState.__sePowerManagerMemory;
 }
@@ -24,7 +25,31 @@ function summarize(pack: Pack): PackSummary {
   return summary;
 }
 
+const docKey = (collection: string, storeHash: string, id: string) => `${collection}\u0000${storeHash}\u0000${id}`;
+
 export const memoryAppDataStore: AppDataStore = {
+  async putDoc(collection, storeHash, id, body) {
+    const key = docKey(collection, storeHash, id);
+
+    state().docs.set(key, { id, createdAt: state().docs.get(key)?.createdAt ?? new Date().toISOString(), body: JSON.parse(JSON.stringify(body)) });
+  },
+
+  async getDoc(collection, storeHash, id) {
+    return state().docs.get(docKey(collection, storeHash, id));
+  },
+
+  async listDocs(collection, storeHash) {
+    const prefix = docKey(collection, storeHash, "");
+
+    return [...state().docs.entries()].filter(([key]) => key.startsWith(prefix)).map(([, doc]) => doc).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  },
+
+  async deleteDocs(collection, storeHash, ids) {
+    const prefix = docKey(collection, storeHash, "");
+
+    for (const key of [...state().docs.keys()]) if (key.startsWith(prefix) && (!ids || ids.includes(key.slice(prefix.length)))) state().docs.delete(key);
+  },
+
   async listPacks(options = {}) {
     return [...state().packs.values()]
       .filter((pack) => options.published === undefined || (pack.publishedAt !== null) === options.published)
@@ -129,5 +154,7 @@ export const memoryAppDataStore: AppDataStore = {
   async deleteStoreData(storeHash) {
     state().demoProducts.delete(storeHash);
     state().activity = state().activity.filter((entry) => entry.storeHash !== storeHash);
+
+    for (const key of [...state().docs.keys()]) if (key.split("\u0000")[1] === storeHash) state().docs.delete(key);
   },
 };

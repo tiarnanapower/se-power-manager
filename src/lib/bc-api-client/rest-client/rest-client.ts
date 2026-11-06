@@ -148,9 +148,10 @@ export class RestApiClient implements BcRestApiClient {
           headers: {
             "X-Auth-Token": apiToken,
             Accept: "application/json",
-            ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
+            // A FormData body (image uploads) sets its own multipart boundary.
+            ...(options.body !== undefined && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
           },
-          body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+          body: options.body === undefined ? undefined : options.body instanceof FormData ? options.body : JSON.stringify(options.body),
           // No timeout, unlike get() — aborting doesn't cancel the write on
           // BigCommerce's side, so a timeout here risks reporting failure for
           // a mutation that actually succeeded. Retrying on 429 is still

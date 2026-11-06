@@ -1,0 +1,50 @@
+/* Tailwind utilities for the Enrich Tool only, themed with the Commerce dark palette.
+   No preflight: the rest of the app has its own base styles, so only the few resets
+   the utilities rely on are repeated here (inside the base layer, so app CSS wins). */
+@layer theme, base;
+@import "tailwindcss/theme.css" layer(theme);
+/* Utilities stay unlayered so they beat BigDesign's global element styles (h1, p, button). */
+@import "tailwindcss/utilities.css" source(none);
+@source "../components/enrich";
+
+@theme {
+  --color-bc-blue-50: rgb(108 100 245 / 0.14);
+  --color-bc-blue-100: rgb(108 100 245 / 0.22);
+  --color-bc-blue-200: rgb(108 100 245 / 0.34);
+  --color-bc-blue-300: #8a84f7;
+  --color-bc-blue-400: #8a84f7;
+  --color-bc-blue-500: #6c64f5;
+  --color-bc-blue-600: #7d76f7;
+  --color-bc-blue-700: #c4c0ff;
+  --color-bc-ink: #f2f1f6;
+  --color-bc-slate: #c9c8d6;
+  --color-bc-muted: #9b9bb4;
+  --color-bc-line: #2a2a3d;
+  --color-bc-surface: #0e0e18;
+  --color-bc-card: #14141f;
+  --color-bc-teal: #2dd4bf;
+  --color-bc-amber: #f0a020;
+  --color-bc-green: #2ed47a;
+  --color-bc-red: #f0545b;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  .enrich-root *, .enrich-root ::before, .enrich-root ::after { box-sizing: border-box; border: 0 solid var(--color-bc-line); }
+  .enrich-root button, .enrich-root input, .enrich-root textarea, .enrich-root select { font: inherit; color: inherit; background: transparent; }
+  .enrich-root button { cursor: pointer; }
+  .enrich-root h1, .enrich-root h2, .enrich-root h3, .enrich-root p, .enrich-root ul, .enrich-root ol, .enrich-root figure { margin: 0; }
+  .enrich-root ul, .enrich-root ol { padding: 0; list-style: none; }
+  .enrich-root img, .enrich-root svg { display: block; max-width: 100%; }
+}
+
+.enrich-root .tnum { font-variant-numeric: tabular-nums; }
+@keyframes bc-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.enrich-root .animate-fade-up, .animate-fade-up { animation: bc-fade-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes bc-scale-in { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.animate-scale-in { animation: bc-scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes bc-shimmer { 100% { transform: translateX(100%); } }
+.shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(108, 100, 245, 0.14), transparent); animation: bc-shimmer 1.4s infinite; }
+.scroll-slim::-webkit-scrollbar { width: 10px; height: 10px; }
+.scroll-slim::-webkit-scrollbar-thumb { background: #34344a; border: 3px solid transparent; background-clip: content-box; border-radius: 9999px; }
+[role="dialog"]:focus-visible { outline: none; }

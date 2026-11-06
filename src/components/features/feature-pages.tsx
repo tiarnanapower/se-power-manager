@@ -12,21 +12,6 @@ const GEAR_STORE_VARS = ["BIG_GEAR_STORE_HASH", "BIG_GEAR_ACCESS_TOKEN"];
 
 // ---- Catalog ---------------------------------------------------------------
 
-export function EnrichPage() {
-  return (
-    <FeaturePage itemId="enrich">
-      <Planned
-        items={[
-          "Pick products (or a whole category) in your store.",
-          "AI drafts better descriptions, SEO titles and meta descriptions, and attributes.",
-          "Identify products from images or uploaded spec sheets.",
-          "Review every change as a before/after diff, then apply.",
-        ]}
-      />
-    </FeaturePage>
-  );
-}
-
 // ---- Big Gear --------------------------------------------------------------
 
 export async function BigGearProductsPage() {

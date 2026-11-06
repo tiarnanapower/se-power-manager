@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { buildPackPreview, parsePreview } from "@/lib/app-data/preview";
-import type { ActivityEntry, AppDataStore, ImagesState, Pack, PackPreview, PackProduct, PackSummary } from "@/lib/app-data/types";
+import type { ActivityEntry, AppDataStore, AppDoc, ImagesState, Pack, PackPreview, PackProduct, PackSummary } from "@/lib/app-data/types";
 import { AppError } from "@/lib/errors/app-error";
 import { logError } from "@/lib/errors/logger";
 
@@ -45,6 +45,14 @@ const SCHEMA = `
     pack_id TEXT REFERENCES packs (id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     PRIMARY KEY (store_hash, product_id)
+  );
+  CREATE TABLE IF NOT EXISTS app_docs (
+    collection TEXT NOT NULL,
+    store_hash TEXT NOT NULL,
+    id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (collection, store_hash, id)
   );
 `;
 
@@ -288,9 +296,38 @@ export class SqliteAppDataStore implements AppDataStore {
     });
   }
 
+  async putDoc(collection: string, storeHash: string, id: string, body: unknown): Promise<void> {
+    guard("putDoc", () => {
+      this.db.prepare("INSERT INTO app_docs (collection, store_hash, id, body, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(collection, store_hash, id) DO UPDATE SET body = excluded.body").run(collection, storeHash, id, JSON.stringify(body), new Date().toISOString());
+    });
+  }
+
+  async getDoc(collection: string, storeHash: string, id: string): Promise<AppDoc | undefined> {
+    return guard("getDoc", () => {
+      const row = this.db.prepare("SELECT id, body, created_at FROM app_docs WHERE collection = ? AND store_hash = ? AND id = ?").get(collection, storeHash, id) as unknown as { id: string; body: string; created_at: string } | undefined;
+
+      return row ? { id: row.id, createdAt: row.created_at, body: JSON.parse(row.body) } : undefined;
+    });
+  }
+
+  async listDocs(collection: string, storeHash: string): Promise<AppDoc[]> {
+    return guard("listDocs", () => (this.db.prepare("SELECT id, body, created_at FROM app_docs WHERE collection = ? AND store_hash = ? ORDER BY created_at, rowid").all(collection, storeHash) as unknown as { id: string; body: string; created_at: string }[]).map((row) => ({ id: row.id, createdAt: row.created_at, body: JSON.parse(row.body) })));
+  }
+
+  async deleteDocs(collection: string, storeHash: string, ids?: string[]): Promise<void> {
+    guard("deleteDocs", () => {
+      if (!ids) return void this.db.prepare("DELETE FROM app_docs WHERE collection = ? AND store_hash = ?").run(collection, storeHash);
+
+      const remove = this.db.prepare("DELETE FROM app_docs WHERE collection = ? AND store_hash = ? AND id = ?");
+
+      for (const id of ids) remove.run(collection, storeHash, id);
+    });
+  }
+
   async deleteStoreData(storeHash: string): Promise<void> {
     guard("deleteStoreData", () => {
       inTransaction(this.db, () => {
+        this.db.prepare("DELETE FROM app_docs WHERE store_hash = ?").run(storeHash);
         this.db.prepare("DELETE FROM demo_products WHERE store_hash = ?").run(storeHash);
         this.db.prepare("DELETE FROM activity_log WHERE store_hash = ?").run(storeHash);
       });

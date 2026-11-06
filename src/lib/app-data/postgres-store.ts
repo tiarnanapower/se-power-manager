@@ -1,6 +1,6 @@
 import "server-only";
 import { buildPackPreview, parsePreview } from "@/lib/app-data/preview";
-import type { ActivityEntry, AppDataStore, ImagesState, Pack, PackPreview, PackProduct, PackSummary } from "@/lib/app-data/types";
+import type { ActivityEntry, AppDataStore, AppDoc, ImagesState, Pack, PackPreview, PackProduct, PackSummary } from "@/lib/app-data/types";
 import { getPool } from "@/lib/credentials-store/postgres-driver/get-pool";
 import { AppError } from "@/lib/errors/app-error";
 import { logError } from "@/lib/errors/logger";
@@ -51,6 +51,35 @@ function toActivity(row: ActivityRow): ActivityEntry {
 
 // Deployment driver. Schema comes from node-pg-migrate (0003_app_data.sql).
 export class PostgresAppDataStore implements AppDataStore {
+  async putDoc(collection: string, storeHash: string, id: string, body: unknown): Promise<void> {
+    await guard("putDoc", async () => {
+      await getPool().query("INSERT INTO app_docs (collection, store_hash, id, body) VALUES ($1, $2, $3, $4) ON CONFLICT (collection, store_hash, id) DO UPDATE SET body = EXCLUDED.body", [collection, storeHash, id, JSON.stringify(body)]);
+    });
+  }
+
+  async getDoc(collection: string, storeHash: string, id: string): Promise<AppDoc | undefined> {
+    return guard("getDoc", async () => {
+      const { rows } = await getPool().query<{ id: string; body: string; created_at: Date }>("SELECT id, body, created_at FROM app_docs WHERE collection = $1 AND store_hash = $2 AND id = $3", [collection, storeHash, id]);
+
+      return rows[0] ? { id: rows[0].id, createdAt: new Date(rows[0].created_at).toISOString(), body: JSON.parse(rows[0].body) } : undefined;
+    });
+  }
+
+  async listDocs(collection: string, storeHash: string): Promise<AppDoc[]> {
+    return guard("listDocs", async () => {
+      const { rows } = await getPool().query<{ id: string; body: string; created_at: Date }>("SELECT id, body, created_at FROM app_docs WHERE collection = $1 AND store_hash = $2 ORDER BY created_at, seq", [collection, storeHash]);
+
+      return rows.map((row) => ({ id: row.id, createdAt: new Date(row.created_at).toISOString(), body: JSON.parse(row.body) }));
+    });
+  }
+
+  async deleteDocs(collection: string, storeHash: string, ids?: string[]): Promise<void> {
+    await guard("deleteDocs", async () => {
+      if (ids) await getPool().query("DELETE FROM app_docs WHERE collection = $1 AND store_hash = $2 AND id = ANY($3::text[])", [collection, storeHash, ids]);
+      else await getPool().query("DELETE FROM app_docs WHERE collection = $1 AND store_hash = $2", [collection, storeHash]);
+    });
+  }
+
   async listPacks(options: { published?: boolean; includeBackups?: boolean } = {}): Promise<PackSummary[]> {
     const where: string[] = [];
 
@@ -226,6 +255,7 @@ export class PostgresAppDataStore implements AppDataStore {
 
   async deleteStoreData(storeHash: string): Promise<void> {
     await guard("deleteStoreData", async () => {
+      await getPool().query("DELETE FROM app_docs WHERE store_hash = $1", [storeHash]);
       await getPool().query("DELETE FROM demo_products WHERE store_hash = $1", [storeHash]);
       await getPool().query("DELETE FROM activity_log WHERE store_hash = $1", [storeHash]);
     });

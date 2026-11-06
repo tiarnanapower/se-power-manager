@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { AuthorizedPage } from "@/components/layout/authorized-page";
 import { ContentFallback } from "@/components/layout/content-fallback";
-import { EnrichPage } from "@/components/features/feature-pages";
+import { EnrichPage } from "@/components/enrich/enrich-page";
 
 type PageProps = Omit<React.ComponentProps<typeof AuthorizedPage>, "pageComponent">;
 
