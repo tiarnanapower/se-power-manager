@@ -1,0 +1,10 @@
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
+patchedDependencies:
+  '@bigcommerce/big-design': patches/@bigcommerce__big-design+modal-removechild-detached-node.patch
