@@ -4,7 +4,7 @@
 import { buildPackPreview } from "@/lib/app-data/preview";
 import type { AppDataStore, ImagesState, PackProduct, PackSource, PackSummary } from "@/lib/app-data/types";
 import type { BcRestApiClient } from "@/lib/bc-api-client/rest-client/types";
-import { countProducts, createModifiers, createProduct, fetchProductSummary, deleteProducts, fetchAllProductIds, fetchBrands, fetchCategories, fetchProductNames, fetchProducts } from "@/lib/catalog/catalog-api";
+import { countProducts, createModifiers, createProduct, fetchProductSummary, uploadProductImage, deleteProducts, fetchAllProductIds, fetchBrands, fetchCategories, fetchProductNames, fetchProducts } from "@/lib/catalog/catalog-api";
 import { blobImageStore } from "@/lib/catalog/image-store";
 import { checkImageReachable, collectImageUrls, dropDeadImages, isBlobUrl, type ImageCheck, type ImageStore, looksLikeImageError, rewriteProductImages, withoutImages } from "@/lib/catalog/images";
 import { buildCategoryPaths, toCreatePayload, toModifierPayloads, toPackProduct, type PackProductRaw } from "@/lib/catalog/pack-mapper";
@@ -32,6 +32,11 @@ export type DataContext = Pick<OpsContext, "data" | "storeHash" | "userEmail" | 
 export type ClearScope = "all" | "demo";
 
 
+// The same product with no image references, for products whose pictures are uploaded separately.
+function withoutRawImages(product: PackProduct): PackProduct {
+  return { ...product, imageUrls: [], raw: { ...product.raw, images: [] } };
+}
+
 function reasonFor(error: unknown): string {
   if (error instanceof AppError) {
     if (error.status === 409) return "A product with this SKU or name already exists.";
@@ -52,7 +57,12 @@ export async function savePackFromStore(ctx: OpsContext, options: { name: string
   if (products.length > MAX_PACK_PRODUCTS) throw new AppError("VALIDATION", `A pack can hold up to ${MAX_PACK_PRODUCTS} products; this store has ${products.length}.`);
 
   const [categories, brands] = await Promise.all([fetchCategories(client), fetchBrands(client)]);
-  const context = { categoryPaths: buildCategoryPaths(categories), brandNames: new Map(brands.map((brand) => [brand.id, brand.name])) };
+  const context = {
+    categoryPaths: buildCategoryPaths(categories),
+    brandNames: new Map(brands.map((brand) => [brand.id, brand.name])),
+    // Pick lists name other products; they are saved as SKU/name refs and rebuilt after the import.
+    productRefs: new Map(products.map((product) => [product.id, { sku: typeof product.sku === "string" && product.sku ? product.sku : null, name: product.name }])),
+  };
   const packProducts = products.map((product) => toPackProduct(product, context));
   // Images get copied in a second, batched step (see preserveImages). Until then
   // the pack is "pending"; with nowhere to copy to, it is "skipped".
@@ -215,7 +225,7 @@ async function compareRestored(client: BcRestApiClient, id: number, original: Pa
 // `nextOffset` until `done`, so no single request has to outlast the platform's
 // time limit.
 export async function restoreBatch(ctx: OpsContext, options: { packId: string; offset: number; limit?: number }): Promise<RestoreBatchResult> {
-  const { client, data, storeHash, userEmail } = ctx;
+  const { data, storeHash } = ctx;
   const limit = Math.min(options.limit ?? RESTORE_BATCH_SIZE, RESTORE_BATCH_SIZE);
   const page = await data.getPackPage(options.packId, options.offset, limit);
 
@@ -223,8 +233,33 @@ export async function restoreBatch(ctx: OpsContext, options: { packId: string; o
 
   assertCanUse(page.pack, storeHash);
 
+  return restoreProducts(ctx, { label: `pack "${page.pack.name}"`, total: page.pack.productCount, offset: options.offset, products: page.products, packId: options.packId, activityKind: "catalog.restore" });
+}
+
+// Where a sample product's pictures come from. Set for samples, which keep images in the samples
+// repo and upload them straight to BigCommerce.
+export type ImageLoader = (file: string) => Promise<{ bytes: Buffer; mime: string; filename: string }>;
+
+export interface RestoreSlice {
+  // "pack \"x\"" or "sample \"x\" v2", for the activity log.
+  label: string;
+  total: number;
+  offset: number;
+  products: PackProduct[];
+  // Set when the products come from a saved pack, so they are tracked for "clear demo products".
+  packId: string | null;
+  activityKind: string;
+  loadImage?: ImageLoader;
+}
+
+// Creates one slice of products in the store: categories and brands by name, fallbacks for URLs and
+// images BigCommerce refuses, then modifiers and a read-back check. Shared by packs and samples.
+export async function restoreProducts(ctx: OpsContext, slice: RestoreSlice): Promise<RestoreBatchResult> {
+  const { client, data, storeHash, userEmail } = ctx;
+  const page = { products: slice.products };
+  const options = { offset: slice.offset, packId: slice.packId };
   const resolver = new NameResolver(client);
-  const result: RestoreBatchResult = { total: page.pack.productCount, nextOffset: options.offset + page.products.length, created: 0, skipped: 0, failed: 0, imagesMissing: 0, differences: [], errors: [], done: false };
+  const result: RestoreBatchResult = { total: slice.total, nextOffset: slice.offset + slice.products.length, created: 0, skipped: 0, failed: 0, imagesMissing: 0, differences: [], errors: [], done: false };
   const createdIds: number[] = [];
 
   const imageCheck = ctx.imageCheck ?? checkImageReachable;
@@ -237,7 +272,9 @@ export async function restoreBatch(ctx: OpsContext, options: { packId: string; o
 
       const brandName = (original.raw as { brandName?: string | null }).brandName ?? null;
       const resolved = { brandId: await resolver.brandId(brandName), categoryIds };
-      const { product, missing } = await dropDeadImages(original, imageCheck);
+      // Sample pictures are uploaded after the product exists, so the create body carries none.
+      const uploads = slice.loadImage ? ((original.raw as unknown as Partial<PackProductRaw>).images ?? []) : [];
+      const { product, missing } = slice.loadImage ? { product: withoutRawImages(original), missing: 0 } : await dropDeadImages(original, imageCheck);
       let id: number;
       let keepUrl = true;
       let keepImages = true;
@@ -261,11 +298,35 @@ export async function restoreBatch(ctx: OpsContext, options: { packId: string; o
 
       const raw = original.raw as unknown as Partial<PackProductRaw>;
 
-      if (raw.modifiers?.length) await createModifiers(client, id, toModifierPayloads(raw.modifiers));
+      // A modifier or picture BigCommerce refuses must not lose a product that now exists: report it instead.
+      try {
+        if (raw.modifiers?.length) await createModifiers(client, id, toModifierPayloads(raw.modifiers));
+      } catch (error) {
+        result.differences.push({ name: original.name, detail: `custom options not created: ${reasonFor(error)}` });
+      }
 
-      const difference = await compareRestored(client, id, original, product);
+      if (slice.loadImage) {
+        let uploaded = 0;
 
-      if (difference) result.differences.push({ name: original.name, detail: difference });
+        for (const image of uploads) {
+          try {
+            if (!image.file) continue;
+
+            const loaded = await slice.loadImage(image.file);
+
+            await uploadProductImage(client, id, { ...loaded, isThumbnail: image.isThumbnail, sortOrder: image.sortOrder, description: image.description });
+            uploaded += 1;
+          } catch {
+            result.imagesMissing += 1;
+          }
+        }
+
+        if (uploaded < uploads.length) result.differences.push({ name: original.name, detail: `only ${uploaded} of ${uploads.length} images uploaded` });
+      } else {
+        const difference = await compareRestored(client, id, original, product);
+
+        if (difference) result.differences.push({ name: original.name, detail: difference });
+      }
 
       createdIds.push(id);
       result.created += 1;
@@ -280,14 +341,15 @@ export async function restoreBatch(ctx: OpsContext, options: { packId: string; o
   result.done = result.nextOffset >= result.total || page.products.length === 0;
 
   if (createdIds.length) await data.recordDemoProducts(storeHash, createdIds, options.packId);
+  void options;
 
   if (page.products.length) {
     await data.logActivity({
       storeHash,
       userEmail,
-      kind: "catalog.restore",
+      kind: slice.activityKind,
       summary:
-        `Restored from pack "${page.pack.name}": ${result.created} created, ${result.skipped} skipped, ${result.failed} failed (products ${options.offset + 1}-${result.nextOffset} of ${result.total}).` +
+        `Restored from ${slice.label}: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed (products ${options.offset + 1}-${result.nextOffset} of ${result.total}).` +
         (result.imagesMissing ? ` ${result.imagesMissing} images no longer existed and were left out.` : "") +
         (result.errors[0] ? ` First problem: ${result.errors[0].name}: ${result.errors[0].reason}` : ""),
       status: result.failed ? (result.created ? "partial" : "failed") : "success",

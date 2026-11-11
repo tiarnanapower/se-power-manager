@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { restoreBatchAction } from "@/app/store/[storeHash]/catalog/restore/actions";
 import { saveImportPackAction, scrapeUrlAction } from "@/app/store/[storeHash]/catalog/import/actions";
+import { PromptPanel } from "@/components/import/prompt-panel";
 import type { ScrapedProduct } from "@/lib/import/scrape";
 
 interface Props {
@@ -60,6 +61,9 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
   const [pushIssues, setPushIssues] = useState<string[]>([]);
   const [pushMessage, setPushMessage] = useState<Message>();
   const [elapsed, setElapsed] = useState(0);
+  // The AI prompt route: opened from the corner button, or offered automatically when a scrape finds nothing.
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [promptReason, setPromptReason] = useState<string>();
   const pageStarted = useRef(0);
   const nextKey = useRef(0);
   // Ticks while a page is being read, so the bar and stage text move before the answer arrives.
@@ -109,7 +113,23 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
 
     if (found.length && !packName) setPackName(`Import: ${new URL(found[0].sourceUrl).hostname} ${new Date().toISOString().slice(0, 10)}`);
 
+    // Nothing came back: the site may block scrapers or build its pages with JavaScript, so offer the prompt route.
+    if (found.length === 0) {
+      setPromptReason(`The scrape didn't find any products${failed.length ? `: ${failed[0]}` : ""}. Some sites block automated readers. Ask Claude or ChatGPT to read the site instead, then paste its answer here.`);
+      setShowPrompt(true);
+    }
+
     setScraping(false);
+  };
+
+  const loadPasted = (products: ScrapedProduct[], note: string) => {
+    setRows((current) => [...current, ...products.map((product) => ({ ...product, key: nextKey.current++, keep: true }))]);
+    setMessage({ ok: true, text: note });
+    setProblems([]);
+    setPushMessage(undefined);
+    setShowPrompt(false);
+
+    if (!packName) setPackName(`Import: ${new URL(products[0].sourceUrl).hostname.replace(/\.invalid$/, "")} ${new Date().toISOString().slice(0, 10)}`);
   };
 
   const update = (key: number, patch: Partial<Row>) => setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -163,7 +183,10 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
   return (
     <>
       <section className="pp-card pp-section">
-        <h2>Scrape products</h2>
+        <div className="pp-section__top">
+          <h2>Scrape products</h2>
+          <button type="button" className="pp-btn" onClick={() => { setPromptReason(undefined); setShowPrompt((value) => !value); }} aria-expanded={showPrompt}>{showPrompt ? "Hide AI prompt" : "Use AI prompt instead"}</button>
+        </div>
         <p className="pp-section__hint">Paste product or category page addresses, one per line (up to 10). AI reads each page and pulls out the products. Nothing is written to your store until you review and push.</p>
         {!aiConfigured && <div className="pp-warn">The AI gateway isn&apos;t configured. Add <code className="pp-code">PORTKEY_API_KEY</code> to the server environment to scrape.</div>}
         <div className="pp-scrape">
@@ -193,6 +216,8 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
         {problems.length > 0 && <ul className="pp-errlist">{problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
         <p className="pp-note">Pages that load their products with JavaScript, or that block automated requests, may come back empty. Product pages and server-rendered category pages work best.</p>
       </section>
+
+      {showPrompt && <PromptPanel urls={parseUrls(urlText)} count={limit} reason={promptReason} onLoad={loadPasted} onClose={() => setShowPrompt(false)} />}
 
       {rows.length > 0 && (
         <section className="pp-glass">

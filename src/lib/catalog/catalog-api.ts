@@ -96,3 +96,21 @@ export async function fetchProductSummary(client: BcRestApiClient, id: number): 
     customFields: product.custom_fields?.length ?? 0,
   };
 }
+
+// Uploads image bytes to a product, for sample products whose pictures live in the samples repo
+// (so BigCommerce never needs to reach a URL).
+export async function uploadProductImage(
+  client: BcRestApiClient,
+  productId: number,
+  image: { bytes: Buffer; mime: string; filename: string; isThumbnail: boolean; sortOrder: number; description: string },
+): Promise<void> {
+  const form = new FormData();
+
+  form.append("image_file", new Blob([new Uint8Array(image.bytes)], { type: image.mime }), image.filename);
+  form.append("is_thumbnail", String(image.isThumbnail));
+  form.append("sort_order", String(image.sortOrder));
+
+  if (image.description) form.append("description", image.description.slice(0, 500));
+
+  await client.post(`/v3/catalog/products/${productId}/images`, { body: form });
+}

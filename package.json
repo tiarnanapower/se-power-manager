@@ -14,7 +14,8 @@
     "scaffold": "node scripts/scaffold.mjs",
     "test": "vitest run",
     "db:postgres:migrate": "node scripts/postgres/migrate.mjs",
-    "vercel-build": "pnpm db:postgres:migrate && next build"
+    "vercel-build": "pnpm db:postgres:migrate && next build",
+    "samples:capture": "tsx --env-file=.env.local scripts/samples-capture.mts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.109",
@@ -44,6 +45,7 @@
     "eslint-config-next": "16.2.9",
     "node-pg-migrate": "9.0.0",
     "tailwindcss": "^4.3.4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.5"
   }

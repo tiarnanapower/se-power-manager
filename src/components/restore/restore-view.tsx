@@ -11,10 +11,7 @@ import { CLEAR_BATCH_SIZE, CLEAR_CONFIRMATION } from "@/lib/catalog/constants";
 
 interface Props {
   storeHash: string | undefined;
-  // This store's own packs.
   packs: PackSummary[];
-  // Packs other stores published to the Shared Catalog: restorable, not editable.
-  sharedPacks?: PackSummary[];
   canWrite: boolean;
   // Whether pack images can be copied to durable storage (Vercel Blob).
   imageStorage: boolean;
@@ -121,7 +118,7 @@ function SaveSection({ storeHash, canWrite, imageStorage }: { storeHash: string 
   };
 
   return (
-    <Section half title="Save this catalog as a pack" hint="Copies every product in your store (with variants, images, categories and brands) into your store's pack library. Packs stay private to this store until you publish them.">
+    <Section half title="Save this catalog as a pack" hint="Copies every product in your store (with variants, images, categories and brands) into your store's pack library. Packs are private to this store.">
       {!imageStorage && <div className="pp-warn" role="note">{IMAGES_NOT_SAVED}</div>}
       <label className="pp-field">Pack name<input className="pp-input" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="Outdoor retailer, 40 products" /></label>
       <label className="pp-field">Description (optional)<input className="pp-input" value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} /></label>
@@ -132,9 +129,8 @@ function SaveSection({ storeHash, canWrite, imageStorage }: { storeHash: string 
   );
 }
 
-function RestoreSection({ storeHash, packs: ownPacks, sharedPacks = [], canWrite, initialPackId }: Props) {
+function RestoreSection({ storeHash, packs, canWrite, initialPackId }: Props) {
   const router = useRouter();
-  const packs = [...ownPacks, ...sharedPacks];
   const [packId, setPackId] = useState(initialPackId ?? packs[0]?.id ?? "");
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, created: 0, skipped: 0, failed: 0, imagesMissing: 0 });
@@ -212,8 +208,7 @@ function RestoreSection({ storeHash, packs: ownPacks, sharedPacks = [], canWrite
         <>
           <label className="pp-field">Pack
             <select className="pp-input" value={selected?.id ?? ""} onChange={(event) => setPackId(event.target.value)} disabled={running}>
-              {ownPacks.length > 0 && <optgroup label="Your packs">{ownPacks.map((pack) => <option key={pack.id} value={pack.id}>{packLabel(pack)}</option>)}</optgroup>}
-              {sharedPacks.length > 0 && <optgroup label="Shared by the team">{sharedPacks.map((pack) => <option key={pack.id} value={pack.id}>{packLabel(pack)}</option>)}</optgroup>}
+              {packs.map((pack) => <option key={pack.id} value={pack.id}>{packLabel(pack)}</option>)}
             </select>
           </label>
           <div className="pp-row">
@@ -398,7 +393,7 @@ function PackList({ storeHash, packs }: { storeHash: string | undefined; packs: 
   };
 
   return (
-    <Section title="Pack library" hint="Packs saved by this store, including automatic backups from clears. They stay private until you publish one from the Shared Catalog page.">
+    <Section title="Pack library" hint="Packs saved by this store, including automatic backups from clears. They are private to this store.">
       {packs.length === 0 ? (
         <div className="pp-empty">Nothing saved yet.</div>
       ) : (

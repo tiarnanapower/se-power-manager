@@ -21,18 +21,29 @@ const COPIED_FIELDS = [
 const VARIANT_FIELDS = ["sku", "price", "sale_price", "retail_price", "weight", "width", "height", "depth", "inventory_level", "is_free_shipping", "purchasing_disabled", "image_url", "cost_price", "map_price", "mpn", "upc", "gtin", "bin_picking_number", "inventory_warning_level"] as const;
 
 export interface MapContext {
+  // product id -> how to find that product again in another store (for pick lists)
+  productRefs?: Map<number, ProductRef>;
   // category id -> "Parent > Child"
   categoryPaths: Map<number, string>;
   // brand id -> name
   brandNames: Map<number, string>;
 }
 
+// A product other products point at (pick lists), found again by SKU, else name.
+export interface ProductRef {
+  sku: string | null;
+  name: string;
+}
+
+export const isPickList = (modifier: Record<string, unknown>) => modifier.type === "product_list" || modifier.type === "product_list_with_images";
+
 export interface PackProductRaw {
   fields: Record<string, unknown>;
   brandName: string | null;
   variants: BcVariant[];
   customFields: { name: string; value: string }[];
-  images: { url: string; isThumbnail: boolean; sortOrder: number; description: string }[];
+  // `file` is set on sample products: a name in the samples repo's images folder, used instead of `url`.
+  images: { url: string; file?: string; isThumbnail: boolean; sortOrder: number; description: string }[];
   bulkPricingRules: Record<string, unknown>[];
   videos: Record<string, unknown>[];
   modifiers: Record<string, unknown>[];
@@ -46,8 +57,9 @@ function only(source: Record<string, unknown>, keys: readonly string[]): Record<
   return pick(source, keys);
 }
 
+// Pick lists are left out here: they point at other products, which may not exist yet. See pickListPayloads.
 export function toModifierPayloads(modifiers: Record<string, unknown>[]): Record<string, unknown>[] {
-  return modifiers.map((modifier) => ({
+  return modifiers.filter((modifier) => !isPickList(modifier)).map((modifier) => ({
     ...only(modifier, ["type", "required", "display_name", "config"]),
     option_values: asList(modifier.option_values).map((value) => ({ ...only(value, ["label", "sort_order", "value_data", "is_default", "adjusters"]) })),
   }));
@@ -84,6 +96,18 @@ export function buildCategoryPaths(categories: { id: number; parent_id: number; 
   return paths;
 }
 
+// Replaces each pick-list entry's product id (meaningless in another store) with a ref to find it by.
+function withProductRefs(modifier: Record<string, unknown>, refs: Map<number, ProductRef> | undefined): Record<string, unknown> {
+  const values = asList(modifier.option_values).flatMap((value) => {
+    const id = (value.value_data as { product_id?: number } | undefined)?.product_id;
+    const ref = id !== undefined ? refs?.get(id) : undefined;
+
+    return ref ? [{ ...only(value, ["label", "sort_order", "is_default", "adjusters"]), ref }] : [];
+  });
+
+  return { ...modifier, option_values: values };
+}
+
 export function toPackProduct(product: BcProduct, context: MapContext): PackProduct {
   const images = [...(product.images ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).flatMap((image) => {
     const url = image.url_zoom ?? image.url_standard;
@@ -101,7 +125,7 @@ export function toPackProduct(product: BcProduct, context: MapContext): PackProd
     images,
     bulkPricingRules: asList(product.bulk_pricing_rules).map((rule) => only(rule, ["quantity_min", "quantity_max", "type", "amount"])),
     videos: asList(product.videos).map((video) => only(video, ["title", "description", "sort_order", "type", "video_id"])),
-    modifiers: asList(product.modifiers),
+    modifiers: asList(product.modifiers).map((modifier) => (isPickList(modifier) ? withProductRefs(modifier, context.productRefs) : modifier)),
     customUrl: typeof (product.custom_url as { url?: unknown } | undefined)?.url === "string" ? ((product.custom_url as { url: string }).url) : null,
   };
 
@@ -144,4 +168,27 @@ export function toCreatePayload(product: PackProduct, ids: ResolvedIds, options:
   }
 
   return body;
+}
+
+// The pick lists of a product, ready to create once the products they point at exist. `resolve`
+// turns a ref into that product's id in the destination store; entries it can't find are left out.
+export function pickListPayloads(modifiers: Record<string, unknown>[], resolve: (ref: ProductRef) => number | undefined): { payloads: Record<string, unknown>[]; missing: string[] } {
+  const missing: string[] = [];
+  const payloads = modifiers.filter(isPickList).map((modifier) => ({
+    ...only(modifier, ["type", "required", "display_name", "config"]),
+    option_values: asList(modifier.option_values).flatMap((value) => {
+      const ref = value.ref as ProductRef | undefined;
+      const id = ref ? resolve(ref) : undefined;
+
+      if (id === undefined) {
+        missing.push(ref ? (ref.sku ?? ref.name) : String(value.label ?? "an item"));
+
+        return [];
+      }
+
+      return [{ ...only(value, ["label", "sort_order", "is_default", "adjusters"]), value_data: { product_id: id } }];
+    }),
+  }));
+
+  return { payloads: payloads.filter((payload) => payload.option_values.length > 0), missing };
 }

@@ -28,7 +28,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: "catalog",
     placement: "main",
     items: [
-      { id: "shared-catalog", title: "Shared Catalog", path: "catalog/shared", description: "The team's library of saved product packs. Pull any pack into your demo store." },
+      { id: "sample-catalog", title: "Sample Catalog", path: "catalog/samples", description: "Ready-made sample data for your sandbox: catalog, shipping, tax, pricing and more, versioned in GitHub." },
       { id: "import", title: "Import Tool", path: "catalog/import", description: "Point at a customer site and let AI scrape the products, then review and push them to your store." },
       { id: "enrich", title: "Enrich Tool", path: "catalog/enrich", description: "Improve descriptions, SEO and attributes on products already in your store." },
       { id: "restore", title: "Restore & Clear", path: "catalog/restore", description: "Save your catalog as a pack, restore one, or clear products in bulk." },
@@ -70,7 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
-export const DEFAULT_PATH = "catalog/shared";
+export const DEFAULT_PATH = "catalog/samples";
 
 // A store-scoped pathname is "/store/<hash>/<path>"; a root-level dev path is
 // "/<path>". Returns the matching nav item, if any.
@@ -78,5 +78,8 @@ export function getActiveItem(pathname: string, storeHash: string | undefined): 
   const segments = pathname.split("/").filter(Boolean);
   const rest = (storeHash ? segments.slice(2) : segments).join("/");
 
-  return NAV_ITEMS.find((item) => item.path === (rest || DEFAULT_PATH));
+  const path = rest || DEFAULT_PATH;
+
+  // A sample's own page (catalog/samples/<name>) belongs to the Sample Catalog item.
+  return NAV_ITEMS.find((item) => item.path === path) ?? NAV_ITEMS.find((item) => path.startsWith(`${item.path}/`));
 }
