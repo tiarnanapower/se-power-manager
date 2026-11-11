@@ -59,8 +59,8 @@ function safePath(path: string): string {
 }
 
 function explain(status: number, path: string): AppError {
-  if (status === 404) return new AppError("NOT_FOUND", `${path} isn't in the samples repo.`, { status, detail: `${path} isn't in the samples repo. Check the sample exists and the repo name and branch are right.` });
-  if (status === 401 || status === 403) return new AppError("AUTH", "GitHub refused access.", { status, detail: "GitHub refused access to the samples repo. Check SAMPLES_GITHUB_TOKEN has read access to it, and that its rate limit isn't used up." });
+  if (status === 404) return new AppError("NOT_FOUND", `${path} isn't in the samples repo.`, { status, detail: `${path} isn't in the samples repo. Check the sample exists and the repo name and branch are right, and set SAMPLES_GITHUB_TOKEN if the repo is private.` });
+  if (status === 401 || status === 403 || status === 429) return new AppError("AUTH", "GitHub refused access.", { status, detail: "GitHub refused access to the samples repo. Check SAMPLES_GITHUB_TOKEN has read access to it, and that its rate limit isn't used up." });
 
   return new AppError("UPSTREAM_API", `GitHub answered ${status}.`, { status, detail: `GitHub answered ${status} when reading ${path}.` });
 }
@@ -96,7 +96,13 @@ export async function readBytes(path: string, options: { ttlMs?: number } = {}):
   let response: Response;
 
   try {
-    response = await fetch(`https://api.github.com/repos/${config.repo}/contents/${safePath(path)}?ref=${encodeURIComponent(config.ref)}`, { headers: headers(config, "application/vnd.github.raw+json"), cache: "no-store", signal: AbortSignal.timeout(20_000) });
+    // With a token the contents API works for private repos. Without one, only a public repo can be read,
+    // and raw.githubusercontent.com has no tight request limit (the API allows 60 an hour).
+    const url = config.token
+      ? `https://api.github.com/repos/${config.repo}/contents/${safePath(path)}?ref=${encodeURIComponent(config.ref)}`
+      : `https://raw.githubusercontent.com/${config.repo}/${encodeURIComponent(config.ref)}/${safePath(path)}`;
+
+    response = await fetch(url, { headers: config.token ? headers(config, "application/vnd.github.raw+json") : { "User-Agent": "se-power-manager" }, cache: "no-store", signal: AbortSignal.timeout(20_000) });
   } catch (error) {
     if (error instanceof AppError) throw error;
 

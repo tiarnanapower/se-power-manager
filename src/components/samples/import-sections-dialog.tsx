@@ -7,6 +7,8 @@ import { SAMPLE_SECTIONS, type SampleManifest, type SampleSectionId } from "@/li
 
 interface Props {
   storeHash: string | undefined;
+  // How many products the catalog has, so the bar can show before the first batch returns.
+  productCount: number;
   slug: string;
   name: string;
   version: string;
@@ -21,7 +23,7 @@ type Phase = "choose" | "running" | "done";
 const LANGUAGE_NAMES: Record<string, string> = { en: "English", fr: "French", es: "Spanish", it: "Italian", de: "German", pt: "Portuguese", nl: "Dutch", ja: "Japanese" };
 const languageName = (code: string) => LANGUAGE_NAMES[code] ?? code.toUpperCase();
 
-export function ImportSectionsDialog({ storeHash, slug, name, version, manifest, languages, defaultLanguage, onClose }: Props) {
+export function ImportSectionsDialog({ storeHash, productCount, slug, name, version, manifest, languages, defaultLanguage, onClose }: Props) {
   const [selected, setSelected] = useState<Set<SampleSectionId>>(new Set(SAMPLE_SECTIONS.filter((section) => section.defaultChecked).map((section) => section.id)));
   const [language, setLanguage] = useState(defaultLanguage);
   const [phase, setPhase] = useState<Phase>("choose");
@@ -51,6 +53,9 @@ export function ImportSectionsDialog({ storeHash, slug, name, version, manifest,
 
     const sum = { created: 0, skipped: 0, failed: 0, imagesMissing: 0, pickLists: 0 };
     const notes: string[] = [];
+
+    setTotals({ ...sum });
+    setProgress({ done: 0, total: productCount });
 
     try {
       if (selected.has("catalog")) {
@@ -172,7 +177,7 @@ export function ImportSectionsDialog({ storeHash, slug, name, version, manifest,
       {phase !== "choose" && (
         <div>
           <strong>{phase === "running" ? stage : "Finished"}</strong>
-          {progress.total > 0 && (
+          {(progress.total > 0 || phase === "running") && (
             <>
               <div className={`pp-progress${phase === "running" ? " is-active" : ""}`}><span style={{ width: `${Math.min(100, (progress.done / progress.total) * 100)}%` }} /></div>
               <div className="pp-muted" style={{ fontSize: 13 }}>{progress.done} of {progress.total} products · {totals.created} created · {totals.skipped} skipped · {totals.failed} failed{totals.imagesMissing ? ` · ${totals.imagesMissing} images missing` : ""}{totals.pickLists ? ` · ${totals.pickLists} pick lists linked` : ""}</div>

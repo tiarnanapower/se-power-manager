@@ -307,6 +307,7 @@ export async function restoreProducts(ctx: OpsContext, slice: RestoreSlice): Pro
 
       if (slice.loadImage) {
         let uploaded = 0;
+        let whyNot = "";
 
         for (const image of uploads) {
           try {
@@ -316,12 +317,13 @@ export async function restoreProducts(ctx: OpsContext, slice: RestoreSlice): Pro
 
             await uploadProductImage(client, id, { ...loaded, isThumbnail: image.isThumbnail, sortOrder: image.sortOrder, description: image.description });
             uploaded += 1;
-          } catch {
+          } catch (error) {
             result.imagesMissing += 1;
+            whyNot ||= reasonFor(error);
           }
         }
 
-        if (uploaded < uploads.length) result.differences.push({ name: original.name, detail: `only ${uploaded} of ${uploads.length} images uploaded` });
+        if (uploaded < uploads.length) result.differences.push({ name: original.name, detail: `only ${uploaded} of ${uploads.length} images uploaded${whyNot ? ` (${whyNot})` : ""}` });
       } else {
         const difference = await compareRestored(client, id, original, product);
 

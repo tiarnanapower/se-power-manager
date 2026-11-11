@@ -115,11 +115,6 @@ export function ProductModal({ storeHash, slug, version, index, onClose }: Props
           )}
 
           {typeof fields.page_title === "string" && fields.page_title && <section><h3>SEO</h3><dl className="pp-product__facts"><Row label="Page title">{fields.page_title}</Row>{typeof fields.meta_description === "string" && <Row label="Description">{fields.meta_description}</Row>}</dl></section>}
-
-          <details className="pp-product__raw">
-            <summary>Raw sample data</summary>
-            <pre>{JSON.stringify(product, null, 2)}</pre>
-          </details>
         </div>
       )}
     </Modal>

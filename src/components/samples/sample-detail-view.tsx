@@ -158,7 +158,7 @@ export function SampleDetailView({ storeHash, bundle, history, historyNote, canI
       )}
 
       {openIndex !== undefined && <ProductModal storeHash={storeHash} slug={meta.slug} version={version} index={openIndex} onClose={() => setOpenIndex(undefined)} />}
-      {importing && <ImportSectionsDialog storeHash={storeHash} slug={meta.slug} name={meta.name} version={version} manifest={manifest} languages={meta.languages} defaultLanguage={meta.defaultLanguage} onClose={() => setImporting(false)} />}
+      {importing && <ImportSectionsDialog storeHash={storeHash} productCount={products.length} slug={meta.slug} name={meta.name} version={version} manifest={manifest} languages={meta.languages} defaultLanguage={meta.defaultLanguage} onClose={() => setImporting(false)} />}
     </>
   );
 }

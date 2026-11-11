@@ -16,7 +16,8 @@ function fakeGitHub() {
 
       if (url.includes("/commits?")) return new Response(JSON.stringify([{ sha: "abcdef1234", html_url: "https://github.com/x/y/commit/abcdef1", commit: { message: "Add v2\n\nmore", author: { name: "Tia", date: "2026-11-01T10:00:00Z" } } }]), { status: 200 });
 
-      const match = url.match(/\/contents\/([^?]+)\?/);
+      // Without a token the app reads raw.githubusercontent.com; with one, the contents API.
+      const match = url.match(/\/contents\/([^?]+)\?/) ?? url.match(/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[^/]+\/(.+)$/);
       const path = match ? decodeURIComponent(match[1]) : "";
       const body = files[path];
 
@@ -60,6 +61,29 @@ describe("sample format helpers", () => {
     expect(slugify("Outdoor Retailer (UK)")).toBe("outdoor-retailer-uk");
     expect(nextVersion([])).toBe("v1");
     expect(nextVersion(["v1", "v3"])).toBe("v4");
+  });
+});
+
+describe("where files are read from", () => {
+  it("uses raw.githubusercontent.com without a token, so a public repo isn't held to the API's hourly limit", async () => {
+    vi.stubEnv("SAMPLES_GITHUB_TOKEN", "");
+    vi.stubEnv("GITHUB_TOKEN", "");
+    files["samples/outdoor/sample.json"] = meta;
+
+    await getVersion("outdoor", "v1").catch(() => undefined);
+
+    expect(requested[0]).toContain("raw.githubusercontent.com/");
+    vi.unstubAllEnvs();
+  });
+
+  it("uses the contents API with a token, which also reads private repos", async () => {
+    vi.stubEnv("SAMPLES_GITHUB_TOKEN", "t0ken");
+    files["samples/outdoor/sample.json"] = meta;
+
+    await getVersion("outdoor", "v1").catch(() => undefined);
+
+    expect(requested[0]).toContain("api.github.com/repos/");
+    vi.unstubAllEnvs();
   });
 });
 
