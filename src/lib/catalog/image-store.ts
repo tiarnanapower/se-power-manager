@@ -5,6 +5,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { head, put } from "@vercel/blob";
 import type { ImageStore } from "@/lib/catalog/images";
+import { AppError } from "@/lib/errors/app-error";
 import { logError } from "@/lib/errors/logger";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -66,6 +67,12 @@ export const blobImageStore: ImageStore = {
       return stored.url;
     } catch (error) {
       logError("blobImageStore.preserve", error);
+
+      // A sign-in problem affects every picture and isn't "the picture is gone", so say so instead of
+      // reporting each one as lost.
+      if (error instanceof Error && /credential|token|unauthori[sz]ed|forbidden|store id|oidc/i.test(error.message)) {
+        throw new AppError("AUTH", "Image storage refused the app.", { cause: error, detail: "Image storage (Vercel Blob) rejected the app's sign-in. Check BLOB_STORE_ID and that the store is connected to this project and environment, or add BLOB_READ_WRITE_TOKEN." });
+      }
 
       return null;
     }

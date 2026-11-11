@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { finishSamplePickListsAction, importSampleBatchAction } from "@/app/store/[storeHash]/catalog/samples/actions";
+import { finishSamplePickListsAction, importSampleBatchAction, importSampleSectionAction } from "@/app/store/[storeHash]/catalog/samples/actions";
 import { Modal } from "@/components/samples/modal";
-import { SAMPLE_SECTIONS, type SampleManifest, type SampleSectionId } from "@/lib/samples/format";
+import { SAMPLE_SECTIONS, sectionLabel, type SampleManifest, type SampleSectionId } from "@/lib/samples/format";
 
 interface Props {
   storeHash: string | undefined;
@@ -112,6 +112,23 @@ export function ImportSectionsDialog({ storeHash, productCount, slug, name, vers
             offset = result.nextOffset;
           }
         }
+      }
+
+      // The other sections are small settings, imported one request each after the catalog.
+      for (const id of SAMPLE_SECTIONS.map((section) => section.id)) {
+        if (id === "catalog" || !selected.has(id) || !importable(id) || cancel.current) continue;
+
+        setStage(`Importing ${sectionLabel(id)}`);
+
+        const done = await importSampleSectionAction(storeHash, { slug, version, section: id });
+
+        if (!done.ok) {
+          notes.push(`${sectionLabel(id)}: ${done.message}`);
+        } else {
+          notes.push(`${sectionLabel(id)}: ${done.result.created} created, ${done.result.updated} updated, ${done.result.skipped} skipped`, ...done.result.warnings.map((warning) => `${warning}`));
+        }
+
+        setIssues(notes.slice(0, 60));
       }
     } catch {
       setError("Lost contact with the server. Products already created stay in your store.");

@@ -4,7 +4,9 @@ import { z } from "zod";
 import { type Outcome, runLocalAction, runStoreAction } from "@/lib/actions/run-action";
 import { finishPickLists } from "@/lib/catalog/pick-lists";
 import { RESTORE_BATCH_SIZE, restoreProducts, type RestoreBatchResult } from "@/lib/catalog/operations";
-import { getImage, getProduct, getProducts, getVersion } from "@/lib/samples/library";
+import { getImage, getProduct, getProducts, getSectionFile, getVersion } from "@/lib/samples/library";
+import { SECTION_MODULES, isSectionModule } from "@/lib/samples/sections";
+import type { SectionResult } from "@/lib/samples/sections/shared";
 import { isSlug, isVersion, SAMPLE_SECTIONS, type SampleProduct } from "@/lib/samples/format";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -85,5 +87,33 @@ export async function listImportableSectionsAction(storeHash: unknown, input: un
     const { manifest } = await getVersion(parsed.data.slug, parsed.data.version);
 
     return { sections: SAMPLE_SECTIONS.map((section) => ({ id: section.id, present: Boolean(manifest.sections[section.id]) })) };
+  });
+}
+
+// Imports one non-catalog section (shipping, tax, ...). These are small, so one request does the section.
+export async function importSampleSectionAction(storeHash: unknown, input: unknown): Promise<Outcome<{ result: SectionResult }>> {
+  const parsed = target.extend({ section: z.string() }).safeParse(input);
+
+  if (!parsed.success || !isSectionModule(parsed.data.section)) return { ok: false, message: "That section can't be imported yet." };
+
+  return runStoreAction(storeHash, "importSampleSectionAction", async (ctx) => {
+    const { slug, version, section } = parsed.data;
+    const { manifest } = await getVersion(slug, version);
+    const entry = manifest.sections[section as keyof typeof manifest.sections];
+
+    if (!entry) throw new AppError("VALIDATION", "Not in this sample.", { detail: "This version of the sample doesn't include that section." });
+
+    const data = await getSectionFile<never>(slug, version, entry.file);
+    const result = await SECTION_MODULES[section as keyof typeof SECTION_MODULES]!.import(ctx.client, data);
+
+    await ctx.data.logActivity({
+      storeHash: ctx.storeHash,
+      userEmail: ctx.userEmail,
+      kind: "samples.import-section",
+      summary: `Imported ${section} from sample "${slug}" ${version}: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped${result.warnings.length ? `, ${result.warnings.length} warnings` : ""}.`,
+      status: result.warnings.length ? "partial" : "success",
+    });
+
+    return { result };
   });
 }

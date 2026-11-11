@@ -19,8 +19,8 @@ export const PRODUCTS_PER_CHUNK = 100;
 // The sections an SE can pick when importing, in the order shown. `catalog` is always on by default.
 export const SAMPLE_SECTIONS = [
   { id: "catalog", label: "Catalog", description: "Categories, brands, products, variants, options, custom fields, pick lists and images.", defaultChecked: true, implemented: true },
-  { id: "shipping", label: "Shipping", description: "Shipping zones, methods and rates.", defaultChecked: false, implemented: false },
-  { id: "tax", label: "Tax", description: "Tax settings, zones, rates and classes.", defaultChecked: false, implemented: false },
+  { id: "shipping", label: "Shipping", description: "Shipping zones and their methods.", defaultChecked: false, implemented: true },
+  { id: "tax", label: "Tax", description: "Tax zones, rates and settings.", defaultChecked: false, implemented: true },
   { id: "pricing", label: "Pricing & currencies", description: "Currencies and price lists with their records.", defaultChecked: false, implemented: false },
   { id: "storefront", label: "Storefront settings", description: "Branding, SEO, display, catalog, search and privacy settings.", defaultChecked: false, implemented: false },
   { id: "checkout", label: "Checkout & customer experience", description: "Checkout, cart, order and abandoned-cart settings.", defaultChecked: false, implemented: false },

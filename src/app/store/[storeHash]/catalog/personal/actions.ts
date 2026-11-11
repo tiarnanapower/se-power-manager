@@ -18,7 +18,7 @@ import {
 } from "@/lib/catalog/operations";
 import { assertOwns } from "@/lib/catalog/pack-access";
 import { AppError } from "@/lib/errors/app-error";
-import type { PackSummary } from "@/lib/app-data/types";
+import type { PackProduct, PackSummary } from "@/lib/app-data/types";
 
 const packId = z.string().min(1).max(64);
 const scope = z.enum(["all", "demo"]);
@@ -94,5 +94,24 @@ export async function deletePackAction(storeHash: unknown, input: unknown): Prom
     await ctx.data.logActivity({ storeHash: ctx.storeHash, userEmail: ctx.userEmail, kind: "catalog.delete-pack", summary: `Deleted pack "${page.pack.name}".`, status: "success" });
 
     return { deleted: true as const };
+  });
+}
+
+// One product of this store's own pack, for the popup on the pack's page.
+export async function getPackProductAction(storeHash: unknown, input: unknown): Promise<Outcome<{ product: PackProduct }>> {
+  const parsed = z.object({ packId, index: z.number().int().min(0).max(100_000) }).safeParse(input);
+
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  return runLocalAction(storeHash, "getPackProductAction", async (ctx) => {
+    const page = await ctx.data.getPackPage(parsed.data.packId, parsed.data.index, 1);
+
+    if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.", { detail: "That pack no longer exists." });
+
+    assertOwns(page.pack, ctx.storeHash);
+
+    if (!page.products[0]) throw new AppError("NOT_FOUND", "That product isn't in the pack.", { detail: "That product isn't in the pack." });
+
+    return { product: page.products[0] };
   });
 }

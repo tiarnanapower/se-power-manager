@@ -32,7 +32,7 @@ export async function RestorePage({ params, searchParams }: PageProps) {
   }
 
   return (
-    <FeaturePage itemId="restore">
+    <FeaturePage itemId="personal-catalog">
       {failure ? <LoadError header="Couldn't load packs" text={failure} /> : <RestoreView storeHash={storeHash} packs={packs} canWrite={getDataMode() !== "MOCK"} imageStorage={blobImageStore.configured()} initialPackId={packs.some((pack) => pack.id === requestedPack) ? requestedPack : undefined} />}
     </FeaturePage>
   );

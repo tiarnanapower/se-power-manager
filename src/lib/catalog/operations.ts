@@ -1,4 +1,4 @@
-// Save, restore and clear: the operations behind Restore & Clear. Each takes an
+// Save, restore and clear: the operations behind the Personal Catalog. Each takes an
 // explicit context (client, data store, store hash, user) so Server Actions
 // supply the real ones after authorizing, and tests supply fakes.
 import { buildPackPreview } from "@/lib/app-data/preview";

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ImportSectionsDialog } from "@/components/samples/import-sections-dialog";
+import { getSampleProductAction } from "@/app/store/[storeHash]/catalog/samples/actions";
 import { ProductModal } from "@/components/samples/product-modal";
 import { SampleImage } from "@/components/samples/sample-image";
 import { sectionLabel } from "@/lib/samples/format";
@@ -157,7 +158,7 @@ export function SampleDetailView({ storeHash, bundle, history, historyNote, canI
         </>
       )}
 
-      {openIndex !== undefined && <ProductModal storeHash={storeHash} slug={meta.slug} version={version} index={openIndex} onClose={() => setOpenIndex(undefined)} />}
+      {openIndex !== undefined && <ProductModal storeHash={storeHash} load={() => getSampleProductAction(storeHash, { slug: meta.slug, version, index: openIndex })} onClose={() => setOpenIndex(undefined)} />}
       {importing && <ImportSectionsDialog storeHash={storeHash} productCount={products.length} slug={meta.slug} name={meta.name} version={version} manifest={manifest} languages={meta.languages} defaultLanguage={meta.defaultLanguage} onClose={() => setImporting(false)} />}
     </>
   );

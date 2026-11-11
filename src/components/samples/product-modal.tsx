@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getSampleProductAction } from "@/app/store/[storeHash]/catalog/samples/actions";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/samples/modal";
 import { SampleImage } from "@/components/samples/sample-image";
 import type { SampleProduct } from "@/lib/samples/format";
 
 interface Props {
   storeHash: string | undefined;
-  slug: string;
-  version: string;
-  index: number;
+  // Loads the product to show: from a sample in the repo, or from a saved pack.
+  load: () => Promise<{ ok: true; product: SampleProduct } | { ok: false; message: string }>;
   onClose: () => void;
 }
 
@@ -19,7 +17,7 @@ type Raw = {
   brandName?: string | null;
   variants?: { sku?: string; price?: number | null; inventory_level?: number | null; option_values?: { option_display_name: string; label: string }[] }[];
   customFields?: { name: string; value: string }[];
-  images?: { file?: string; isThumbnail: boolean; description: string }[];
+  images?: { file?: string; url?: string; isThumbnail: boolean; description: string }[];
   bulkPricingRules?: { quantity_min: number; quantity_max: number; type: string; amount: number }[];
   videos?: { title?: string }[];
   modifiers?: { type?: string; display_name?: string; required?: boolean; option_values?: { label: string; ref?: { sku: string | null; name: string } }[] }[];
@@ -33,21 +31,22 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return <div className="pp-product__row"><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
-export function ProductModal({ storeHash, slug, version, index, onClose }: Props) {
+export function ProductModal({ storeHash, load, onClose }: Props) {
   const [product, setProduct] = useState<SampleProduct>();
   const [error, setError] = useState<string>();
+  const loader = useRef(load);
 
   useEffect(() => {
     let live = true;
 
-    void getSampleProductAction(storeHash, { slug, version, index })
+    void loader.current()
       .then((result) => live && (result.ok ? setProduct(result.product) : setError(result.message)))
       .catch(() => live && setError("Couldn't load that product."));
 
     return () => {
       live = false;
     };
-  }, [storeHash, slug, version, index]);
+  }, []);
 
   const raw = (product?.raw ?? {}) as Raw;
   const fields = raw.fields ?? {};
@@ -59,7 +58,7 @@ export function ProductModal({ storeHash, slug, version, index, onClose }: Props
       {product && (
         <div className="pp-product">
           <div className="pp-product__gallery">
-            {(raw.images ?? []).length === 0 ? <div className="pp-empty">No images</div> : raw.images?.map((image) => <SampleImage key={image.file} file={image.file ?? null} storeHash={storeHash} className="pp-product__img" />)}
+            {(raw.images ?? []).length === 0 ? <div className="pp-empty">No images</div> : raw.images?.map((image, i) => <SampleImage key={image.file ?? image.url ?? i} file={image.file ?? null} src={image.url || null} storeHash={storeHash} className="pp-product__img" />)}
           </div>
           <dl className="pp-product__facts">
             <Row label="SKU">{product.sku ?? "—"}</Row>

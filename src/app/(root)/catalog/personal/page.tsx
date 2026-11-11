@@ -1,4 +1,4 @@
-import StorePage from "@/app/store/[storeHash]/catalog/restore/page";
+import StorePage from "@/app/store/[storeHash]/catalog/personal/page";
 
 // Root alias for MOCK/STATIC development (no store hash in the URL). The root
 // layout renders an Unauthorized page instead when hit in MULTITENANT mode.

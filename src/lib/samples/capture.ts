@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import type { BcRestApiClient } from "@/lib/bc-api-client/rest-client/types";
 import { fetchBrands, fetchCategories, fetchProducts } from "@/lib/catalog/catalog-api";
 import { buildCategoryPaths, toPackProduct, type PackProductRaw } from "@/lib/catalog/pack-mapper";
+import { SECTION_MODULES } from "@/lib/samples/sections";
 import {
   chunkName,
   imagePath,
@@ -21,6 +22,7 @@ import {
   type SampleManifest,
   type SampleMeta,
   type SampleProduct,
+  type SampleSectionId,
 } from "@/lib/samples/format";
 
 export interface CaptureOptions {
@@ -31,6 +33,8 @@ export interface CaptureOptions {
   // What changed in this version, shown in the version history.
   notes?: string;
   defaultLanguage?: string;
+  // Sections to capture besides the catalog, e.g. ["shipping", "tax"].
+  sections?: SampleSectionId[];
   storeName?: string | null;
   // Reads a file already in the repo (for the index and the version list), or undefined if it isn't there.
   readExisting: (path: string) => Promise<string | undefined>;
@@ -144,6 +148,23 @@ export async function captureCatalogSample(client: BcRestApiClient, options: Cap
   catalog.chunks.forEach((name, file) => files.set(versionPath(slug, version, "catalog", name), JSON.stringify(sampleProducts.slice(file * PRODUCTS_PER_CHUNK, (file + 1) * PRODUCTS_PER_CHUNK))));
   files.set(versionPath(slug, version, "catalog.json"), JSON.stringify(catalog));
 
+  const extra: Partial<SampleManifest["sections"]> = {};
+
+  for (const id of options.sections ?? []) {
+    const sectionModule = id === "catalog" ? undefined : SECTION_MODULES[id];
+
+    if (!sectionModule) {
+      warnings.push(`${id}: capturing this section isn't supported yet`);
+      continue;
+    }
+
+    const captured = await sectionModule.capture(client);
+
+    files.set(versionPath(slug, version, `${id}.json`), JSON.stringify(captured.data));
+    extra[id] = { file: `${id}.json`, warnings: captured.warnings.slice(0, 20) };
+    warnings.push(...captured.warnings.map((warning) => `${id}: ${warning}`));
+  }
+
   const manifest: SampleManifest = {
     formatVersion: SAMPLE_FORMAT_VERSION,
     slug,
@@ -151,7 +172,7 @@ export async function captureCatalogSample(client: BcRestApiClient, options: Cap
     capturedAt: now,
     source: { storeName: options.storeName ?? null },
     defaultLanguage: options.defaultLanguage ?? existingMeta?.defaultLanguage ?? "en",
-    sections: { catalog: { file: "catalog.json", counts: { products: sampleProducts.length, categories: catalog.categories.length, brands: catalog.brands.length }, warnings: warnings.slice(0, 20) } },
+    sections: { catalog: { file: "catalog.json", counts: { products: sampleProducts.length, categories: catalog.categories.length, brands: catalog.brands.length }, warnings: warnings.filter((warning) => !/^[a-z]+: /.test(warning) || warning.includes("couldn't download")).slice(0, 20) }, ...extra },
     images: imageFiles.size,
   };
 
@@ -165,7 +186,7 @@ export async function captureCatalogSample(client: BcRestApiClient, options: Cap
     latest: version,
     defaultLanguage: manifest.defaultLanguage,
     languages: existingMeta?.languages ?? [manifest.defaultLanguage],
-    versions: [...(existingMeta?.versions ?? []), { version, date: now, notes: options.notes ?? "", formatVersion: SAMPLE_FORMAT_VERSION, sections: ["catalog"], products: sampleProducts.length }],
+    versions: [...(existingMeta?.versions ?? []), { version, date: now, notes: options.notes ?? "", formatVersion: SAMPLE_FORMAT_VERSION, sections: Object.keys(manifest.sections) as SampleSectionId[], products: sampleProducts.length }],
   };
 
   files.set(samplePath(slug, "sample.json"), JSON.stringify(meta, null, 2));
@@ -181,7 +202,7 @@ export async function captureCatalogSample(client: BcRestApiClient, options: Cap
     products: sampleProducts.length,
     categories: catalog.categories.length,
     preview: [...new Set(catalog.products.map((product) => product.image).filter((file): file is string => file !== null))].slice(0, 4),
-    sections: ["catalog"],
+    sections: Object.keys(manifest.sections) as SampleSectionId[],
     languages: meta.languages,
   };
 

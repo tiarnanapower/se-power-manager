@@ -2,13 +2,15 @@
 // samples repo. Nothing is pushed: review the files, then commit them yourself.
 //
 //   pnpm samples:capture --name "Outdoor Retailer" --out ../bc-sample-data \
-//     [--slug outdoor-retailer] [--description "..."] [--tags uk,outdoor] [--notes "What changed"]
+//     [--slug outdoor-retailer] [--description "..."] [--tags uk,outdoor] [--notes "What changed"] \
+//     [--sections shipping,tax]
 //
 // The store comes from STATIC_STORE_HASH and STATIC_STORE_TOKEN in .env.local (or --store-hash / --token).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { ApiRequestOptions, ApiResponse, BcRestApiClient } from "../src/lib/bc-api-client/rest-client/types";
 import { captureCatalogSample } from "../src/lib/samples/capture";
+import type { SampleSectionId } from "../src/lib/samples/format";
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => {
@@ -61,6 +63,8 @@ const result = await captureCatalogSample(client, {
   description: flag("description"),
   tags: flag("tags")?.split(",").map((tag) => tag.trim()).filter(Boolean),
   notes: flag("notes"),
+  // e.g. --sections shipping,tax (the catalog is always captured)
+  sections: flag("sections")?.split(",").map((id) => id.trim()).filter(Boolean) as SampleSectionId[] | undefined,
   storeName,
   readExisting: async (path) => {
     const file = join(out, path);

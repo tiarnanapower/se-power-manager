@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { restoreBatchAction } from "@/app/store/[storeHash]/catalog/restore/actions";
+import { restoreBatchAction } from "@/app/store/[storeHash]/catalog/personal/actions";
 import { saveImportPackAction, scrapeUrlAction } from "@/app/store/[storeHash]/catalog/import/actions";
 import { PromptPanel } from "@/components/import/prompt-panel";
 import type { ScrapedProduct } from "@/lib/import/scrape";
@@ -146,7 +146,7 @@ export function ImportView({ storeHash, aiConfigured, canWrite }: Props) {
       const saved = await saveImportPackAction(storeHash, { name: packName.trim(), products: payload() });
 
       if (!saved.ok) return setPushMessage({ ok: false, text: saved.message });
-      if (!push) return setPushMessage({ ok: true, text: `Saved as the pack "${saved.pack.name}". Find it under Restore & Clear, where you can restore or publish it.` });
+      if (!push) return setPushMessage({ ok: true, text: `Saved as the pack "${saved.pack.name}". Find it in your Personal Catalog, where you can open it and restore it.` });
 
       const totals = { created: 0, skipped: 0, failed: 0, imagesMissing: 0 };
       const issues: string[] = [];
