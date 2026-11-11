@@ -852,3 +852,10 @@ body { background: radial-gradient(1100px 520px at 90% -12%, rgba(75, 48, 214, 0
 
 /* Personal Catalog export */
 .pp-steps { margin: 14px 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+
+/* Dropdown menu groups */
+.pp-nav__toggle { width: 100%; background: none; border: 0; border-radius: 10px; cursor: pointer; text-align: left; font-family: inherit; }
+.pp-nav__toggle:hover { color: #fff; background: rgba(122, 109, 255, 0.1); }
+.pp-nav__toggle:focus-visible { outline: 2px solid var(--pp-primary); outline-offset: 2px; }
+.pp-nav__chevron { margin-left: auto; transition: transform 0.15s; }
+.pp-nav__toggle[aria-expanded="false"] .pp-nav__chevron { transform: rotate(-90deg); }
