@@ -23,16 +23,22 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    id: "catalog",
-    title: "Catalog",
+    id: "import",
+    title: "Import",
     icon: "catalog",
     placement: "main",
     items: [
       { id: "sample-catalog", title: "Sample Catalog", path: "catalog/samples", description: "Ready-made sample data for your sandbox: catalog, shipping, tax, pricing and more, versioned in GitHub." },
-      { id: "import", title: "Import Tool", path: "catalog/import", description: "Point at a customer site and let AI scrape the products, then review and push them to your store." },
-      { id: "enrich", title: "Enrich Tool", path: "catalog/enrich", description: "Improve descriptions, SEO and attributes on products already in your store." },
-      { id: "personal-catalog", title: "Personal Catalog", path: "catalog/personal", description: "Your own saved catalogs, private to this store. Save one, open it to see what is inside, restore it, or clear your store." },
+      { id: "personal-catalog", title: "Personal Catalog", path: "catalog/personal", description: "Your own saved catalogs, private to this store. Save one, open it to see what is inside, restore it, export it for the sample repo, or clear your store." },
+      { id: "import", title: "Import From External Site", path: "catalog/import", description: "Point at a customer site and let AI scrape the products, then review and push them to your store." },
     ],
+  },
+  {
+    id: "enrich",
+    title: "Enrich Tool",
+    icon: "catalog",
+    placement: "main",
+    items: [{ id: "enrich", title: "Enrich Tool", path: "catalog/enrich", description: "Improve descriptions, SEO and attributes on products already in your store." }],
   },
   {
     id: "big-gear",

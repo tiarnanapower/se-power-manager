@@ -9,7 +9,7 @@ SE's store and uses that store's API connection, and also connects to the shared
 ```
 Catalog
   Shared Catalog      library of packs saved by anyone on the team
-  Import Tool         AI scrape of a customer site -> review -> push
+  Import From External Site         AI scrape of a customer site -> review -> push
   Enrich Tool         AI improvements to products already in the store
   Restore & Clear     save/restore packs, bulk clear
 Big Gear
@@ -52,7 +52,7 @@ Restore & Clear has only run against an in-memory fake. Before relying on it, tr
 1. Foundation. Done.
 2. Persistence. Done.
 3. Restore & Clear. Built; see "Not yet verified" above.
-4. Import Tool: AI extraction (fetch page, clean it, `generateObject` with a Zod
+4. Import From External Site: AI extraction (fetch page, clean it, `generateObject` with a Zod
    schema through Portkey), job model with polling (serverless time limits), SSRF
    guard, review grid, push.
 5. Big Gear pulls: products, then Stencil (download theme job, upload, create

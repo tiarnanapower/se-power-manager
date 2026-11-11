@@ -16,7 +16,11 @@ import {
   savePackFromStore,
   startClear,
 } from "@/lib/catalog/operations";
+import { collectImageUrls } from "@/lib/catalog/images";
 import { assertOwns } from "@/lib/catalog/pack-access";
+import { assertPublicUrl } from "@/lib/import/safe-fetch";
+import { isSlug } from "@/lib/samples/format";
+import { getIndex, getSampleMeta } from "@/lib/samples/library";
 import { AppError } from "@/lib/errors/app-error";
 import type { PackProduct, PackSummary } from "@/lib/app-data/types";
 
@@ -113,5 +117,81 @@ export async function getPackProductAction(storeHash: unknown, input: unknown): 
     if (!page.products[0]) throw new AppError("NOT_FOUND", "That product isn't in the pack.", { detail: "That product isn't in the pack." });
 
     return { product: page.products[0] };
+  });
+}
+
+// ---- Export for the sample repo ----------------------------------------------------------------
+// The export is put together in the browser (images are hashed and zipped there) so no single
+// response is large. These actions only hand over the pieces, each limited to this store's own pack.
+
+const EXPORT_PAGE_SIZE = 25;
+const EXPORT_IMAGE_LIMIT = 3 * 1024 * 1024;
+
+// What the repo already holds for this slug, so the export can number the next version and update the index.
+export async function getExportContextAction(storeHash: unknown, input: unknown): Promise<Outcome<{ index: string | null; meta: string | null }>> {
+  const parsed = z.object({ packId, slug: z.string().max(64) }).safeParse(input);
+
+  if (!parsed.success || !isSlug(parsed.data.slug)) return { ok: false, message: "Use lower-case letters, numbers and dashes for the sample's name in the repo." };
+
+  const { slug } = parsed.data;
+
+  return runLocalAction(storeHash, "getExportContextAction", async (ctx) => {
+    const page = await ctx.data.getPackPage(parsed.data.packId, 0, 1);
+
+    if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.", { detail: "That pack no longer exists." });
+
+    assertOwns(page.pack, ctx.storeHash);
+
+    const index = await getIndex().catch(() => undefined);
+    const meta = await getSampleMeta(slug).catch(() => undefined);
+
+    return { index: index ? JSON.stringify(index) : null, meta: meta ? JSON.stringify(meta) : null };
+  });
+}
+
+export async function getPackExportPageAction(storeHash: unknown, input: unknown): Promise<Outcome<{ products: PackProduct[]; total: number }>> {
+  const parsed = z.object({ packId, offset: z.number().int().min(0).max(100_000) }).safeParse(input);
+
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  return runLocalAction(storeHash, "getPackExportPageAction", async (ctx) => {
+    const page = await ctx.data.getPackPage(parsed.data.packId, parsed.data.offset, EXPORT_PAGE_SIZE);
+
+    if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.", { detail: "That pack no longer exists." });
+
+    assertOwns(page.pack, ctx.storeHash);
+
+    return { products: page.products, total: page.pack.productCount };
+  });
+}
+
+// One picture of the pack, as base64. Only addresses the pack itself lists can be fetched.
+export async function getPackImageAction(storeHash: unknown, input: unknown): Promise<Outcome<{ image: { base64: string; mime: string } | null }>> {
+  const parsed = z.object({ packId, offset: z.number().int().min(0).max(100_000), url: z.string().url().max(2000) }).safeParse(input);
+
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  return runLocalAction(storeHash, "getPackImageAction", async (ctx) => {
+    const page = await ctx.data.getPackPage(parsed.data.packId, parsed.data.offset, EXPORT_PAGE_SIZE);
+
+    if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.", { detail: "That pack no longer exists." });
+
+    assertOwns(page.pack, ctx.storeHash);
+
+    if (!page.products.some((product) => collectImageUrls(product).includes(parsed.data.url))) throw new AppError("VALIDATION", "That picture isn't in the pack.", { detail: "That picture isn't in the pack." });
+
+    try {
+      const url = await assertPublicUrl(parsed.data.url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(20_000), redirect: "follow" });
+      const mime = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+
+      if (!response.ok || !mime.startsWith("image/")) return { image: null };
+
+      const bytes = Buffer.from(await response.arrayBuffer());
+
+      return bytes.length > 0 && bytes.length <= EXPORT_IMAGE_LIMIT ? { image: { base64: bytes.toString("base64"), mime } } : { image: null };
+    } catch {
+      return { image: null };
+    }
   });
 }

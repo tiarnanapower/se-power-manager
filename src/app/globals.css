@@ -849,3 +849,6 @@ body { background: radial-gradient(1100px 520px at 90% -12%, rgba(75, 48, 214, 0
 /* Enrich Tool (Tailwind utilities) */
 .enrich-root .bg-bc-blue-500 { background-image: var(--cmrc-grad); background-color: #170245; border-color: var(--cmrc-edge); }
 .enrich-root .hover\:bg-bc-blue-600:hover { background-image: var(--cmrc-grad-hover); background-color: #1f0460; }
+
+/* Personal Catalog export */
+.pp-steps { margin: 14px 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { getPackProductAction } from "@/app/store/[storeHash]/catalog/personal/actions";
+import { ExportPackDialog } from "@/components/personal/export-pack-dialog";
 import { RestorePackDialog } from "@/components/personal/restore-pack-dialog";
 import { ProductModal } from "@/components/samples/product-modal";
 import { SampleImage } from "@/components/samples/sample-image";
@@ -30,6 +31,7 @@ export function PersonalDetailView({ storeHash, pack, products, canWrite, imageS
   const [category, setCategory] = useState("");
   const [openIndex, setOpenIndex] = useState<number>();
   const [restoring, setRestoring] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const categories = useMemo(() => [...new Set(products.flatMap((product) => product.categories))].sort(), [products]);
   const shown = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -47,11 +49,12 @@ export function PersonalDetailView({ storeHash, pack, products, canWrite, imageS
           <div className="pp-pack__chips">
             <span className="pp-pill pp-pill--live">Catalog</span>
             {pack.source === "backup" && <span className="pp-pill pp-pill--exhausted">Backup before a clear</span>}
-            {pack.source === "scrape" && <span className="pp-pill pp-pill--scheduled">From the Import Tool</span>}
+            {pack.source === "scrape" && <span className="pp-pill pp-pill--scheduled">From an external site</span>}
           </div>
         </div>
         <div className="pp-sample__actions">
           <button type="button" className="pp-btn pp-btn--primary" onClick={() => setRestoring(true)} disabled={!canWrite}>Restore this pack</button>
+          <button type="button" className="pp-btn" onClick={() => setExporting(true)}>Export for the sample repo</button>
         </div>
         <dl className="pp-sample__stats">
           <div><dt>Products</dt><dd>{pack.productCount}</dd></div>
@@ -90,6 +93,7 @@ export function PersonalDetailView({ storeHash, pack, products, canWrite, imageS
       </section>
 
       {openIndex !== undefined && <ProductModal storeHash={storeHash} load={() => getPackProductAction(storeHash, { packId: pack.id, index: openIndex })} onClose={() => setOpenIndex(undefined)} />}
+      {exporting && <ExportPackDialog storeHash={storeHash} pack={pack} onClose={() => setExporting(false)} />}
       {restoring && <RestorePackDialog storeHash={storeHash} pack={pack} imageStorage={imageStorage} onClose={() => setRestoring(false)} />}
     </>
   );
