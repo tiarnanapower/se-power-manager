@@ -182,7 +182,7 @@ export function ImportSectionsDialog({ source, onClose }: Props) {
         <div>
           <strong>{job.phase === "running" ? job.stage : "Finished"}</strong>
           <JobProgress job={job} unit="products" />
-          {job.phase === "running" && <p className="pp-muted" style={{ fontSize: 13 }}>You can hide this and use other pages: the import keeps going while this tab stays open, and its progress shows in the corner.</p>}
+          {job.phase === "running" && <p className="pp-muted" style={{ fontSize: 13 }}>You can hide this and use other pages in the app, and its progress shows in the corner.</p>}
           {job.error && <div role="status" className="pp-msg pp-msg--err">{job.error}</div>}
           {job.phase === "done" && !job.error && <div role="status" className="pp-msg pp-msg--ok">Done.</div>}
           {job.issues.length > 0 && <ul className="pp-errlist">{job.issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>}

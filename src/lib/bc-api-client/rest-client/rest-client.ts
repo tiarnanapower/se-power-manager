@@ -120,9 +120,13 @@ export class RestApiClient implements BcRestApiClient {
     logApiRequest("GET", url, response.status, performance.now() - startedAt);
 
     if (!response.ok) {
+      const reason = this.base ? await readErrorTitle(response) : undefined;
+
       throw new AppError("UPSTREAM_API", `A BigCommerce API request failed.`, {
         cause: `GET "${path}" failed with status ${response.status}.`,
         status: response.status,
+        // Only the B2B host: its own words for why it refused, which the page then shows.
+        ...(reason ? { detail: reason } : {}),
       });
     }
 

@@ -37,6 +37,7 @@ export function JobProgress({ job, unit = "" }: { job: Job; unit?: string }) {
       {running && job.done === 0 && job.total > 0 && (
         <div className="pp-muted" style={{ fontSize: 13, marginTop: 4 }}>The first batch is the slowest part, because each product&apos;s pictures are copied. It can sit at 0% for a few minutes while it is working. A time estimate appears once the first batch is done.</div>
       )}
+      {running && <div style={{ fontSize: 13, marginTop: 4, fontWeight: 600 }}>Leaving the app will stop the import.</div>}
       {job.summary && <div className="pp-muted" style={{ fontSize: 13, marginTop: 4 }}>{job.summary}</div>}
     </>
   );
