@@ -54,7 +54,7 @@ export async function SamplesPage({ params }: PageProps) {
   }
 
   return (
-    <FeaturePage itemId="store-templates">
+    <FeaturePage itemId="demo-snapshots">
       {failure ? (
         <LoadError header="Couldn't load the samples" text={failure} />
       ) : samples.length === 0 ? (

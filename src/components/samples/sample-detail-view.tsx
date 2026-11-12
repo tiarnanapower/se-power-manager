@@ -44,7 +44,7 @@ export function SampleDetailView({ storeHash, bundle, history, historyNote, canI
     <>
       <section className="pp-card pp-section pp-sample__head">
         <div className="pp-sample__title">
-          <Link className="pp-sample__back" href={getAppUrl(storeHash, "/catalog/samples")}>← Store Templates</Link>
+          <Link className="pp-sample__back" href={getAppUrl(storeHash, "/catalog/samples")}>← Demo Snapshots</Link>
           <h2>{meta.name}</h2>
           {meta.description && <p className="pp-section__hint">{meta.description}</p>}
           <div className="pp-pack__chips">

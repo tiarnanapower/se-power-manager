@@ -148,7 +148,7 @@ export function ExportPackDialog({ storeHash, pack, onClose }: { storeHash: stri
     >
       {phase === "form" && (
         <div>
-          <p className="pp-section__hint">Turns <strong>{pack.name}</strong> into a snapshot zip in the Store Templates format. You can upload it again under My Snapshots, or add it to the templates repo.</p>
+          <p className="pp-section__hint">Turns <strong>{pack.name}</strong> into a snapshot zip in the Demo Snapshots format. You can upload it again under My Snapshots, or add it to the demo snapshots repo.</p>
           <label className="pp-field"><span>Sample name</span><input className="pp-input" value={name} onChange={(event) => setName(event.target.value)} maxLength={120} /></label>
           <label className="pp-field"><span>Name in the repo</span><input className="pp-input" value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase())} maxLength={64} aria-invalid={!isSlug(slug)} /><small className="pp-muted">Lower-case letters, numbers and dashes. Reuse an existing one to add a version.</small></label>
           <label className="pp-field"><span>Description</span><input className="pp-input" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} /></label>
@@ -172,7 +172,7 @@ export function ExportPackDialog({ storeHash, pack, onClose }: { storeHash: stri
           <ol className="pp-steps">
             <li>Unzip it into your clone of the sample repo and let it merge with what is there.</li>
             <li>Check it with <code>git status</code>, then commit and push it.</li>
-            <li>Store Templates shows it once GitHub has it (within a few minutes).</li>
+            <li>Demo Snapshots shows it once GitHub has it (within a few minutes).</li>
           </ol>
           {result.warnings.length > 0 && (
             <>

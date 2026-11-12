@@ -7,7 +7,7 @@ import { buildStoreSnapshot, downloadBytes } from "@/lib/samples/snapshot-client
 
 type Phase = "form" | "running" | "done";
 
-// Reads the connected store and downloads it as a zip in the Store Templates format: products with
+// Reads the connected store and downloads it as a zip in the Demo Snapshots format: products with
 // variants, options, custom fields and pictures, plus the settings sections that can be saved.
 export function DownloadSnapshotDialog({ storeHash, onClose }: { storeHash: string | undefined; onClose: () => void }) {
   const [phase, setPhase] = useState<Phase>("form");
@@ -79,9 +79,9 @@ export function DownloadSnapshotDialog({ storeHash, onClose }: { storeHash: stri
     >
       {phase === "form" && (
         <div>
-          <p className="pp-section__hint">Saves your store as a zip file in the same format as Store Templates. Nothing is stored on a server: you keep the file, and can upload it here later to load it into this or another store.</p>
+          <p className="pp-section__hint">Saves your store as a zip file in the same format as Demo Snapshots. Nothing is stored on a server: you keep the file, and can upload it here later to load it into this or another store.</p>
           <label className="pp-field"><span>Snapshot name</span><input className="pp-input" value={name} onChange={(event) => { setName(event.target.value); if (!slugEdited) setSlug(slugify(event.target.value)); }} maxLength={120} placeholder="Outdoor retailer, November" /></label>
-          <label className="pp-field"><span>File name</span><input className="pp-input" value={slug} onChange={(event) => { setSlug(event.target.value.toLowerCase()); setSlugEdited(true); }} maxLength={64} aria-invalid={slug !== "" && !isSlug(slug)} /><small className="pp-muted">Lower-case letters, numbers and dashes. Use the name of an existing template to number this as its next version.</small></label>
+          <label className="pp-field"><span>File name</span><input className="pp-input" value={slug} onChange={(event) => { setSlug(event.target.value.toLowerCase()); setSlugEdited(true); }} maxLength={64} aria-invalid={slug !== "" && !isSlug(slug)} /><small className="pp-muted">Lower-case letters, numbers and dashes. Use the name of an existing demo snapshot to number this as its next version.</small></label>
           <label className="pp-field"><span>Description</span><input className="pp-input" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} /></label>
           <label className="pp-field"><span>Tags</span><input className="pp-input" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="uk, outdoor" /></label>
           <label className="pp-field"><span>What is in this version</span><input className="pp-input" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={300} /></label>
@@ -115,7 +115,7 @@ export function DownloadSnapshotDialog({ storeHash, onClose }: { storeHash: stri
       {phase === "done" && result && (
         <div>
           <div role="status" className="pp-msg pp-msg--ok">Downloaded {result.file}: {result.products} products and {result.images} pictures as {result.version}.</div>
-          <p className="pp-section__hint">Keep the file somewhere safe. To use it again, upload it under My Snapshots. To share it with everyone, unzip it into the templates repo, then commit and push.</p>
+          <p className="pp-section__hint">Keep the file somewhere safe. To use it again, upload it under My Snapshots. To share it with everyone, unzip it into the demo snapshots repo, then commit and push.</p>
           {result.warnings.length > 0 && (
             <>
               <p className="pp-section__hint">Worth a look:</p>

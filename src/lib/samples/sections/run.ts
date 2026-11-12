@@ -1,5 +1,5 @@
 // Imports one non-catalog section into the store and records it in the activity log. Shared by the
-// Store Templates (data read from the repo) and uploaded snapshots (data read from the zip).
+// Demo Snapshots (data read from the repo) and uploaded snapshots (data read from the zip).
 import type { OpsContext } from "@/lib/catalog/operations";
 import { AppError } from "@/lib/errors/app-error";
 import { isSectionModule, SECTION_MODULES } from "@/lib/samples/sections";

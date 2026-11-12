@@ -46,7 +46,7 @@ export function buildCommand(edition: Edition, collaborative?: CollaborativeInpu
   const branch = collaborative.branch.trim();
   const name = collaborative.projectName.trim();
 
-  if (!repo) errors.push("Enter the GitHub repo as owner/name, or paste its address.");
+  if (!repo) errors.push("Enter the destination GitHub repo as owner/name, or paste its address.");
   if (!isBranchName(branch)) errors.push("Enter a branch name using letters, numbers, dots, dashes and slashes.");
   if (!isProjectName(name)) errors.push("Give the project folder a lower-case name using letters, numbers, dashes and underscores.");
 

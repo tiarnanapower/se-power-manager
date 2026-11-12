@@ -29,7 +29,7 @@ export function DeployCatalystView() {
   const projectName = typedProject ?? suggestProjectName(repo);
   const fields = checkCollaborative({ repo, branch, projectName });
   const result = buildCommand(edition, collaborative ? { repo, branch, projectName } : undefined);
-  const needed = ([["repo", "GitHub repo"], ["branch", "Branch name"], ["projectName", "Project folder"]] as const).filter(([id]) => fields[id].state === "empty").map(([, label]) => label);
+  const needed = ([["repo", "Destination GitHub repo"], ["branch", "Branch name"], ["projectName", "Project folder"]] as const).filter(([id]) => fields[id].state === "empty").map(([, label]) => label);
 
   const copy = async () => {
     if (!result.ok) return;
@@ -66,7 +66,7 @@ export function DeployCatalystView() {
 
           {collaborative && (
             <div className="pp-deploy__fields">
-              <Field label="GitHub repo" state={fields.repo}><input className="pp-input" value={repo} onChange={(event) => setRepo(event.target.value)} placeholder="owner/name or https://github.com/owner/name" spellCheck={false} autoComplete="off" /></Field>
+              <Field label="Destination GitHub repo" state={fields.repo}><input className="pp-input" value={repo} onChange={(event) => setRepo(event.target.value)} placeholder="owner/name or https://github.com/owner/name" spellCheck={false} autoComplete="off" /></Field>
               <Field label="Branch name" state={fields.branch}><input className="pp-input" value={branch} onChange={(event) => setBranch(event.target.value)} placeholder="my-demo" spellCheck={false} autoComplete="off" /></Field>
               <Field label="Project folder" state={fields.projectName} hint="Filled in from the repo name. The git steps run inside this folder."><input className="pp-input" value={projectName} onChange={(event) => setTypedProject(event.target.value.toLowerCase())} placeholder="my-storefront" spellCheck={false} autoComplete="off" /></Field>
             </div>

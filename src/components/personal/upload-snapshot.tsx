@@ -34,7 +34,7 @@ function BundleImage({ sample, file, className }: { sample: BundleSample; file: 
   return <SampleImage src={file ? src : null} storeHash={undefined} className={className} />;
 }
 
-// Upload a snapshot (a zip or a folder in the Store Templates format), look inside it, then load it into the store.
+// Upload a snapshot (a zip or a folder in the Demo Snapshots format), look inside it, then load it into the store.
 export function UploadSnapshot({ storeHash, canWrite }: { storeHash: string | undefined; canWrite: boolean }) {
   const [samples, setSamples] = useState<BundleSample[]>([]);
   const [chosen, setChosen] = useState(0);
@@ -56,7 +56,7 @@ export function UploadSnapshot({ storeHash, canWrite }: { storeHash: string | un
     try {
       const opened = openBundle(await read());
 
-      if (opened.samples.length === 0) throw new Error(opened.problems[0] ?? "That doesn't contain a snapshot. Choose a zip or folder made by Download a snapshot or taken from the templates repo.");
+      if (opened.samples.length === 0) throw new Error(opened.problems[0] ?? "That doesn't contain a snapshot. Choose a zip or folder made by Download a snapshot or taken from the demo snapshots repo.");
 
       setSamples(opened.samples);
       setChosen(0);
@@ -79,7 +79,7 @@ export function UploadSnapshot({ storeHash, canWrite }: { storeHash: string | un
     <>
       <section className="pp-card pp-section">
         <h2>Upload a snapshot</h2>
-        <p className="pp-section__hint">Choose a zip, or a folder, made by Download a snapshot (or taken from the templates repo). You can look inside it before anything is loaded into your store.</p>
+        <p className="pp-section__hint">Choose a zip, or a folder, made by Download a snapshot (or taken from the demo snapshots repo). You can look inside it before anything is loaded into your store.</p>
         <div
           className={`pp-drop${dragging ? " is-over" : ""}`}
           onDragOver={(event) => { event.preventDefault(); setDragging(true); }}

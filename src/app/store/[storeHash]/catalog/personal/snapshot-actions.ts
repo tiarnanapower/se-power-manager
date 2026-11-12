@@ -88,8 +88,8 @@ export async function snapshotSectionAction(storeHash: unknown, input: unknown):
   });
 }
 
-// What the templates repo already holds for this name, so a snapshot can be numbered as the next version
-// of an existing template and its index updated.
+// What the demo snapshots repo already holds for this name, so a snapshot can be numbered as the next version
+// of an existing demo snapshot and its index updated.
 export async function getRepoStateAction(storeHash: unknown, input: unknown): Promise<Outcome<{ index: string | null; meta: string | null }>> {
   const parsed = z.object({ slug: z.string().max(64) }).safeParse(input);
 
