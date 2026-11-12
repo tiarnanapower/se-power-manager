@@ -52,6 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
     menu: true,
     items: [
       { id: "deploy-catalyst", title: "Deploy Catalyst Storefront", path: "utilities/deploy-catalyst", description: "Copy-and-paste terminal commands that create a Catalyst storefront with native BigCommerce hosting, for B2B or B2C." },
+      { id: "wawaweewa", title: "Wawaweewa", path: "utilities/wawaweewa", description: "Import the catalog and the B2B companies and users from a shared source store that has B2B data into your store." },
     ],
   },
   {

@@ -18,6 +18,12 @@ Names changed along the way. Current names first, old names in brackets:
 
 ## 2026-11-12
 
+### Utilities > Wawaweewa
+- A new Utilities item that imports from a **shared source store that has B2B data** into the SE's own store. It plays the part the Big Gear pages were meant to, but the source is a different store, set by the operator with `WAWAWEEWA_STORE_HASH` and `WAWAWEEWA_ACCESS_TOKEN` (read-only use; the same token reaches that store's B2B API). SEs never see the token.
+- **Catalog:** products, categories, brands, variants, options, custom fields, pick lists (linked in a second pass) and pictures. Pictures are fetched from the source store's CDN by BigCommerce itself. Products with an existing SKU are skipped.
+- **B2B companies and users:** each company with its administrator and other users. Existing company names are skipped. Quotes, orders and custom roles are not copied.
+- The page shows the source's product and company counts with a short preview before anything is imported, then a progress bar with Stop. **Untested against a real import.**
+
 ### Demo Snapshots read from a private repo
 - The default repo is now **`BigCommerceDemo/se-demo-catalogs`** (branch `main`). It is private, so `SAMPLES_GITHUB_TOKEN` must be set (a fine-grained token with Contents: read-only on that repo) in Vercel and in `.env.local`, then redeployed. The capture script's default output folder is now `../se-demo-catalogs`.
 
