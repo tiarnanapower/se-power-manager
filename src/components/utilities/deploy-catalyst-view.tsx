@@ -2,19 +2,34 @@
 
 import { useState } from "react";
 import { Section } from "@/components/features/ui";
-import { buildCommand, EDITIONS, type Edition } from "@/lib/utilities/catalyst-commands";
+import { buildCommand, checkCollaborative, EDITIONS, suggestProjectName, type Edition, type FieldState } from "@/lib/utilities/catalyst-commands";
+
+// One input with its label. An empty one is marked "needed" in purple; red is kept for a value that was
+// typed but can't be used.
+function Field({ label, state, hint, children }: { label: string; state: FieldState; hint?: string; children: React.ReactNode }) {
+  return (
+    <label className={`pp-field pp-deploy__field${state.state === "empty" ? " is-needed" : ""}${state.state === "invalid" ? " is-invalid" : ""}`}>
+      <span>{label}{state.state === "empty" && <em className="pp-deploy__needed">needed</em>}</span>
+      {children}
+      {state.state === "invalid" ? <small className="pp-deploy__problem">{state.message}</small> : hint ? <small className="pp-muted">{hint}</small> : null}
+    </label>
+  );
+}
 
 export function DeployCatalystView() {
   const [edition, setEdition] = useState<Edition>("b2b");
   const [collaborative, setCollaborative] = useState(false);
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("");
-  const [projectName, setProjectName] = useState("");
+  const [typedProject, setTypedProject] = useState<string>();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const current = EDITIONS.find((entry) => entry.id === edition)!;
+  // The folder name follows the repo's name until the person types their own.
+  const projectName = typedProject ?? suggestProjectName(repo);
+  const fields = checkCollaborative({ repo, branch, projectName });
   const result = buildCommand(edition, collaborative ? { repo, branch, projectName } : undefined);
-  const touched = repo !== "" || branch !== "" || projectName !== "";
+  const needed = ([["repo", "GitHub repo"], ["branch", "Branch name"], ["projectName", "Project folder"]] as const).filter(([id]) => fields[id].state === "empty").map(([, label]) => label);
 
   const copy = async () => {
     if (!result.ok) return;
@@ -51,9 +66,9 @@ export function DeployCatalystView() {
 
           {collaborative && (
             <div className="pp-deploy__fields">
-              <label className="pp-field"><span>GitHub repo</span><input className="pp-input" value={repo} onChange={(event) => setRepo(event.target.value)} placeholder="owner/name or https://github.com/owner/name" spellCheck={false} autoComplete="off" /></label>
-              <label className="pp-field"><span>Branch name</span><input className="pp-input" value={branch} onChange={(event) => setBranch(event.target.value)} placeholder="my-demo" spellCheck={false} autoComplete="off" /></label>
-              <label className="pp-field"><span>Project folder</span><input className="pp-input" value={projectName} onChange={(event) => setProjectName(event.target.value.toLowerCase())} placeholder="my-storefront" spellCheck={false} autoComplete="off" /><small className="pp-muted">The folder the project is created in. The git steps run inside it.</small></label>
+              <Field label="GitHub repo" state={fields.repo}><input className="pp-input" value={repo} onChange={(event) => setRepo(event.target.value)} placeholder="owner/name or https://github.com/owner/name" spellCheck={false} autoComplete="off" /></Field>
+              <Field label="Branch name" state={fields.branch}><input className="pp-input" value={branch} onChange={(event) => setBranch(event.target.value)} placeholder="my-demo" spellCheck={false} autoComplete="off" /></Field>
+              <Field label="Project folder" state={fields.projectName} hint="Filled in from the repo name. The git steps run inside this folder."><input className="pp-input" value={projectName} onChange={(event) => setTypedProject(event.target.value.toLowerCase())} placeholder="my-storefront" spellCheck={false} autoComplete="off" /></Field>
             </div>
           )}
 
@@ -62,8 +77,7 @@ export function DeployCatalystView() {
             <button type="button" className="pp-btn pp-btn--primary" onClick={copy} disabled={!result.ok}>{copied ? "Copied" : "Copy command"}</button>
           </div>
 
-          {!result.ok && touched && <ul className="pp-errlist">{result.errors.map((message) => <li key={message}>{message}</li>)}</ul>}
-          {!result.ok && !touched && <p className="pp-muted" style={{ fontSize: 13 }}>Fill in the fields above to get the full command.</p>}
+          {!result.ok && <p className="pp-deploy__note">{needed.length > 0 ? `Still to fill in: ${needed.join(", ")}. The command above is an example until then.` : "Fix the highlighted field to get the command."}</p>}
           {copyFailed && <div role="status" className="pp-msg pp-msg--err">Couldn&apos;t copy automatically. Select the command and copy it yourself.</div>}
         </div>
       </Section>

@@ -868,3 +868,10 @@ body { background: var(--pp-bg); }
 .pp-drop { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 22px; border: 1px dashed var(--pp-border); border-radius: 12px; color: var(--pp-muted); font-size: 14px; }
 .pp-drop.is-over { border-color: #8f82ff; background: rgba(122, 109, 255, 0.08); }
 .pp-drop .pp-btn { cursor: pointer; }
+
+/* Deploy Catalyst Storefront: needed and invalid fields */
+.pp-deploy__needed { margin-left: 8px; font-style: normal; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #b9b1ff; }
+.pp-deploy__field.is-needed .pp-input { border-color: #8f82ff; box-shadow: 0 0 0 1px rgba(143, 130, 255, 0.35); }
+.pp-deploy__field.is-invalid .pp-input { border-color: var(--pp-danger, #e5484d); }
+.pp-deploy__problem { color: var(--pp-danger, #ff8a8f); font-size: 12px; font-weight: 400; }
+.pp-deploy__note { margin: 10px 0 0; font-size: 13px; color: var(--pp-muted); }

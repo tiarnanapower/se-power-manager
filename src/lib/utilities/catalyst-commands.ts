@@ -64,3 +64,24 @@ export function buildCommand(edition: Edition, collaborative?: CollaborativeInpu
 
   return { ok: true, command: lines(`https://github.com/${repo.owner}/${repo.repo}.git`, branch, name) };
 }
+
+// How each collaborative field stands, so the page can say "needed" for an empty one and only call a
+// value an error once something has been typed that can't be used.
+export type FieldState = { state: "ok" } | { state: "empty" } | { state: "invalid"; message: string };
+
+export function checkCollaborative(input: CollaborativeInput): Record<keyof CollaborativeInput, FieldState> {
+  const check = (value: string, valid: boolean, message: string): FieldState => (value.trim() === "" ? { state: "empty" } : valid ? { state: "ok" } : { state: "invalid", message });
+
+  return {
+    repo: check(input.repo, parseRepo(input.repo) !== undefined, "That isn't a GitHub repo. Use owner/name, or paste the repo's address."),
+    branch: check(input.branch, isBranchName(input.branch.trim()), "Branch names can use letters, numbers, dots, dashes and slashes, with no spaces."),
+    projectName: check(input.projectName, isProjectName(input.projectName.trim()), "Use lower-case letters, numbers, dashes and underscores, with no spaces."),
+  };
+}
+
+// A folder name taken from the repo's name, so the person doesn't have to invent one.
+export function suggestProjectName(repoInput: string): string {
+  const name = (parseRepo(repoInput)?.repo ?? "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^[-_]+|[-_]+$/g, "");
+
+  return isProjectName(name) ? name : "";
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCommand, isBranchName, parseRepo } from "@/lib/utilities/catalyst-commands";
+import { buildCommand, checkCollaborative, isBranchName, parseRepo, suggestProjectName } from "@/lib/utilities/catalyst-commands";
 
 describe("buildCommand", () => {
   it("gives the plain B2B command, with hosting", () => {
@@ -59,5 +59,25 @@ describe("isBranchName", () => {
     expect(isBranchName("main")).toBe(true);
     expect(isBranchName("feature/x-1.2")).toBe(true);
     for (const bad of ["", "-x", "a..b", "a b", "a/", "a.lock", "a//b"]) expect(isBranchName(bad)).toBe(false);
+  });
+});
+
+describe("checkCollaborative", () => {
+  it("calls an empty field needed, not wrong", () => {
+    expect(checkCollaborative({ repo: "acme/demo", branch: "", projectName: "" })).toEqual({ repo: { state: "ok" }, branch: { state: "empty" }, projectName: { state: "empty" } });
+  });
+
+  it("only calls a field invalid once something unusable is typed", () => {
+    const result = checkCollaborative({ repo: "not a repo", branch: "my branch", projectName: "Has Caps" });
+
+    expect([result.repo.state, result.branch.state, result.projectName.state]).toEqual(["invalid", "invalid", "invalid"]);
+  });
+});
+
+describe("suggestProjectName", () => {
+  it("turns the repo name into a usable folder name", () => {
+    expect(suggestProjectName("acme/Demo.Store")).toBe("demo-store");
+    expect(suggestProjectName("https://github.com/acme/my_site.git")).toBe("my_site");
+    expect(suggestProjectName("nonsense")).toBe("");
   });
 });
