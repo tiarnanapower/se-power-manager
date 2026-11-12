@@ -7,7 +7,7 @@ import { restoreProducts, type RestoreBatchResult } from "@/lib/catalog/operatio
 import { captureB2b, importB2b, type B2bCompany } from "@/lib/samples/sections/b2b";
 import type { SectionResult } from "@/lib/samples/sections/shared";
 import { planSource, readSourceProducts, type SourcePlan } from "@/lib/wawaweewa/source";
-import { getWawaweewaB2bClient, getWawaweewaClient } from "@/lib/wawaweewa/config";
+import { getWawaweewaB2bClient, getWawaweewaClient, probeB2b, type B2bProbe } from "@/lib/wawaweewa/config";
 
 // Actions behind Wawaweewa. The source store's token stays on the server: the browser only ever sees what
 // was read from it, a few products or companies at a time, so no single request is large or slow.
@@ -81,4 +81,8 @@ export async function importWawaweewaB2bAction(storeHash: unknown, input: unknow
 
     return { result };
   });
+}
+
+export async function testWawaweewaB2bAction(storeHash: unknown): Promise<Outcome<{ probes: B2bProbe[] }>> {
+  return runStoreAction(storeHash, "testWawaweewaB2bAction", async () => ({ probes: await probeB2b() }));
 }

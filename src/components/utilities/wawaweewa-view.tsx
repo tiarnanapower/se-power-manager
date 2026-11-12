@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { finishWawaweewaPickListsAction, importWawaweewaB2bAction, importWawaweewaBatchAction, planWawaweewaAction, planWawaweewaB2bAction } from "@/app/store/[storeHash]/utilities/wawaweewa/actions";
+import { finishWawaweewaPickListsAction, importWawaweewaB2bAction, importWawaweewaBatchAction, planWawaweewaAction, planWawaweewaB2bAction, testWawaweewaB2bAction } from "@/app/store/[storeHash]/utilities/wawaweewa/actions";
 import { Section } from "@/components/features/ui";
 import { JobProgress } from "@/components/jobs/job-progress";
 import { SampleImage } from "@/components/samples/sample-image";
 import { WawaweewaSpinner } from "@/components/utilities/wawaweewa-spinner";
 import { dismissJob, finishJob, isCancelled, patchJob, requestCancel, startJob, useJob, type Job } from "@/lib/jobs/job-store";
+import type { B2bProbe } from "@/lib/wawaweewa/config";
 import type { SourcePreview } from "@/lib/wawaweewa/source";
 
 const JOB = "wawaweewa";
@@ -19,9 +20,24 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite, token
   const [wantB2b, setWantB2b] = useState((preview.companyTotal ?? 0) > 0);
   // The run lives in the job store, so leaving this page and coming back shows where it got to.
   const job = useJob(JOB);
+  const [probes, setProbes] = useState<B2bProbe[]>();
+  const [probing, setProbing] = useState(false);
+  const [probeError, setProbeError] = useState<string>();
   const phase = job?.phase ?? "choose";
 
   const nothing = (!wantCatalog || preview.productTotal === 0) && (!wantB2b || !preview.companyTotal);
+
+  const probe = async () => {
+    setProbing(true);
+    setProbeError(undefined);
+
+    const result = await testWawaweewaB2bAction(storeHash).catch(() => undefined);
+
+    setProbing(false);
+
+    if (!result?.ok) setProbeError(result ? result.message : "Lost contact with the server.");
+    else setProbes(result.probes);
+  };
 
   const run = async () => {
     startJob(JOB, { title: "Wawaweewa import", href: path(storeHash), stage: "Starting" });
@@ -131,6 +147,15 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite, token
         </dl>
         {preview.problems.map((problem) => <div key={problem} className="pp-warn" style={{ marginTop: 12 }}>{problem}</div>)}
         {tokenHint && <p className="pp-muted" style={{ marginTop: 8, fontSize: 13 }}>{tokenHint} Compare it with the token you created.</p>}
+        <div style={{ marginTop: 12 }}>
+          <button type="button" className="pp-btn" onClick={probe} disabled={probing}>{probing ? "Testing…" : "Test B2B connection"}</button>
+        </div>
+        {probeError && <div className="pp-msg pp-msg--err">{probeError}</div>}
+        {probes && (
+          <ul className="pp-errlist" style={{ marginTop: 10 }}>
+            {probes.map((entry) => <li key={entry.label}><strong>{entry.label}:</strong> {entry.status}{entry.contentType ? ` (${entry.contentType})` : ""} {entry.body}</li>)}
+          </ul>
+        )}
       </Section>
 
       <Section title="What to import" hint="Pick what to bring into your store. Existing products with the same SKU and companies with the same name are skipped, and nothing is deleted.">

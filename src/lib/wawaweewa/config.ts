@@ -55,3 +55,34 @@ export function getWawaweewaB2bClient(): BcRestApiClient {
 
   return new RestApiClient({ storeHash, apiToken: accessToken }, B2B_API_BASE);
 }
+
+export interface B2bProbe {
+  label: string;
+  status: number | string;
+  contentType: string;
+  body: string;
+}
+
+// One-off diagnostic: calls B2B Edition from the server a few ways and reports what came back. Nothing secret
+// is returned, only the response (a company list is cut to its first characters).
+export async function probeB2b(): Promise<B2bProbe[]> {
+  const { storeHash, accessToken } = configOrThrow();
+  const url = `${B2B_API_BASE}/companies?limit=1&offset=0`;
+  const auth = { "X-Auth-Token": accessToken, "X-Store-Hash": storeHash };
+  const variants: [string, Record<string, string>][] = [
+    ["Same headers as the app", { ...auth, Accept: "application/json" }],
+    ["Auth headers only", auth],
+    ["Auth headers with a browser-style user agent", { ...auth, "User-Agent": "curl/8.7.1", Accept: "*/*" }],
+  ];
+
+  return Promise.all(variants.map(async ([label, headers]): Promise<B2bProbe> => {
+    try {
+      const response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+      const body = (await response.text()).replace(accessToken, "[token]").slice(0, 160);
+
+      return { label, status: response.status, contentType: response.headers.get("content-type") ?? "", body };
+    } catch (error) {
+      return { label, status: "no answer", contentType: "", body: error instanceof Error ? error.message.slice(0, 160) : "Request failed." };
+    }
+  }));
+}
