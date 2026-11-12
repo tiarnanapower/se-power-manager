@@ -24,17 +24,6 @@ export function getWawaweewaStatus(): { configured: boolean; label: string } {
   return { configured: Boolean(hash), label: hash ? `${hash.slice(0, 3)}${"•".repeat(Math.max(hash.length - 3, 0))}` : "Not configured" };
 }
 
-// Always shown on the page: enough to tell which token the server has, never enough to use it.
-export function getWawaweewaTokenHint(): string | undefined {
-  const config = getWawaweewaConfig();
-
-  if (!config) return undefined;
-
-  const { accessToken: token, storeHash: hash } = config;
-
-  return `The token the server is using starts with "${token.slice(0, 4)}" and is ${token.length} characters long. The store hash starts with "${hash.slice(0, 3)}", ends with "${hash.slice(-3)}" and is ${hash.length} characters long.`;
-}
-
 function configOrThrow() {
   const config = getWawaweewaConfig();
 
@@ -54,48 +43,4 @@ export function getWawaweewaB2bClient(): BcRestApiClient {
   const { storeHash, accessToken } = configOrThrow();
 
   return new RestApiClient({ storeHash, apiToken: accessToken }, B2B_API_BASE);
-}
-
-export interface B2bProbe {
-  label: string;
-  status: number | string;
-  contentType: string;
-  body: string;
-}
-
-// One-off diagnostic: calls B2B Edition from the server a few ways and reports what came back. Nothing secret
-// is returned, only the response (a company list is cut to its first characters).
-export async function probeB2b(): Promise<B2bProbe[]> {
-  const { storeHash, accessToken } = configOrThrow();
-  const url = `${B2B_API_BASE}/companies?limit=1&offset=0`;
-  const auth = { "X-Auth-Token": accessToken, "X-Store-Hash": storeHash };
-  const variants: [string, Record<string, string>][] = [
-    ["Same headers as the app", { ...auth, Accept: "application/json" }],
-    ["Auth headers only", auth],
-    ["Auth headers with a browser-style user agent", { ...auth, "User-Agent": "curl/8.7.1", Accept: "*/*" }],
-  ];
-
-  const viaClient = async (): Promise<B2bProbe> => {
-    try {
-      const { data } = await getWawaweewaB2bClient().get<unknown>("/companies", { params: { limit: 8, offset: 0 } });
-
-      return { label: "Through the app's own client (what the page uses)", status: 200, contentType: "", body: JSON.stringify(data).slice(0, 160) };
-    } catch (error) {
-      const status = (error as { status?: number })?.status ?? "failed";
-      const said = (error as { detail?: string })?.detail ?? (error instanceof Error ? error.message : "");
-
-      return { label: "Through the app's own client (what the page uses)", status, contentType: "", body: said.slice(0, 160) };
-    }
-  };
-
-  return Promise.all([viaClient(), ...variants.map(async ([label, headers]): Promise<B2bProbe> => {
-    try {
-      const response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) });
-      const body = (await response.text()).replace(accessToken, "[token]").slice(0, 160);
-
-      return { label, status: response.status, contentType: response.headers.get("content-type") ?? "", body };
-    } catch (error) {
-      return { label, status: "no answer", contentType: "", body: error instanceof Error ? error.message.slice(0, 160) : "Request failed." };
-    }
-  })]);
 }

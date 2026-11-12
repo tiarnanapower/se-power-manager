@@ -3,7 +3,7 @@ import { WawaweewaView } from "@/components/utilities/wawaweewa-view";
 import { getDataMode } from "@/lib/bc-api-client/data-mode";
 import { toSafeMessage } from "@/lib/errors/app-error";
 import { logError } from "@/lib/errors/logger";
-import { getWawaweewaB2bClient, getWawaweewaClient, getWawaweewaStatus, getWawaweewaTokenHint, WAWAWEEWA_VARS } from "@/lib/wawaweewa/config";
+import { getWawaweewaB2bClient, getWawaweewaClient, getWawaweewaStatus, WAWAWEEWA_VARS } from "@/lib/wawaweewa/config";
 import { previewSource, type SourcePreview } from "@/lib/wawaweewa/source";
 
 type PageProps = {
@@ -28,7 +28,7 @@ export async function WawaweewaPage({ params }: PageProps) {
 
   return (
     <FeaturePage itemId="wawaweewa">
-      {!status.configured ? <NotConfigured what="The source store" vars={WAWAWEEWA_VARS} /> : failure || !preview ? <LoadError header="Couldn't reach the source store" text={failure ?? "No answer."} /> : <WawaweewaView storeHash={storeHash} preview={preview} sourceLabel={status.label} canWrite={getDataMode() !== "MOCK"} tokenHint={getWawaweewaTokenHint()} />}
+      {!status.configured ? <NotConfigured what="The source store" vars={WAWAWEEWA_VARS} /> : failure || !preview ? <LoadError header="Couldn't reach the source store" text={failure ?? "No answer."} /> : <WawaweewaView storeHash={storeHash} preview={preview} sourceLabel={status.label} canWrite={getDataMode() !== "MOCK"} />}
     </FeaturePage>
   );
 }
