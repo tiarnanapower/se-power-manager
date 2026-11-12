@@ -60,7 +60,7 @@ export async function buildStoreSnapshot(storeHash: string | undefined, options:
   const plan = await planSnapshotAction(storeHash, { ids: options.ids });
 
   if (!plan.ok) throw new Error(plan.message);
-  if (plan.ids.length === 0) throw new Error("There are no products to put in a snapshot.");
+  if (plan.ids.length === 0 && !options.sections.some((id) => id !== "catalog")) throw new Error("There are no products to put in a snapshot.");
 
   const repo = await getRepoStateAction(storeHash, { slug: options.slug });
 

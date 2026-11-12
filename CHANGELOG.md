@@ -18,6 +18,11 @@ Names changed along the way. Current names first, old names in brackets:
 
 ## 2026-11-12
 
+### Clear: more sections
+- **Clear sections** can now clear **B2B Edition** (companies, then custom roles), **Pricing** (price lists and extra currencies), **Shipping** (zones and methods), **Tax** (rates, zones and custom classes) and **Inventory** (stock locations), as well as the catalog.
+- Storefront, Checkout and Localization stay greyed out with the reason: they are settings and translations, which can only be replaced by importing, not deleted.
+- The same two steps apply: a snapshot of what will go is downloaded first (it now includes the chosen sections, and can have no products), then you delete. Defaults the store won't allow to be removed (the default currency, default zone, default location) are left, and anything refused is listed. **Untested against real stores.**
+
 ### Wawaweewa: custom roles, quotes and orders
 - Three new tick boxes on the Wawaweewa page: **Custom roles**, **Quotes** and **Orders**. Each SE chooses what to bring in.
 - **Custom roles** are copied first, and users are given the role they had. **Quotes** are recreated for their company with products matched by SKU. **Orders** are created as real orders for the matching buyer and attached to their company.
@@ -134,6 +139,6 @@ Built before this record was kept in detail; summarised from the commits.
 ## Known gaps
 
 - Quotes, orders and custom B2B roles are not copied.
-- Clear can only remove the catalog; other areas are listed as "not available yet".
+- Clear can't remove Storefront, Checkout or Localization: they are settings, so they can only be replaced.
 - `docs/PLAN.md` still lists the original menu and several early phases, and needs refreshing.
 - Big Gear is hidden from the menu, not removed.

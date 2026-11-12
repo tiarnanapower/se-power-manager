@@ -91,7 +91,8 @@ export async function assembleSample(input: AssembleInput, options: AssembleOpti
   const warnings: string[] = [...(input.warnings ?? [])];
   const files = new Map<string, string | Uint8Array>();
 
-  if (input.products.length === 0) throw new Error("There are no products to put in the sample.");
+  // A backup of settings alone has no products, which is fine as long as something is in it.
+  if (input.products.length === 0 && Object.keys(input.sections ?? {}).length === 0) throw new Error("There are no products to put in the sample.");
 
   // Images are stored once by content hash, so a picture used by many products (or samples) is one file.
   const imageFiles = new Map<string, string>();

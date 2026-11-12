@@ -9,6 +9,8 @@ import { UploadSnapshot } from "@/components/personal/upload-snapshot";
 import { PackCard, PackGrid } from "@/components/packs/pack-card";
 import { Modal } from "@/components/samples/modal";
 import { SAMPLE_SECTIONS } from "@/lib/samples/format";
+import { CLEAR_REASONS, CLEARABLE_SECTIONS, isClearable, type ClearableSection } from "@/lib/samples/sections/clear";
+import { clearSectionStepAction, previewSectionsClearAction } from "@/app/store/[storeHash]/catalog/personal/section-clear-actions";
 import type { PackSummary } from "@/lib/app-data/types";
 import { getAppUrl } from "@/lib/routing/app-url";
 import { CLEAR_BATCH_SIZE, CLEAR_CONFIRMATION } from "@/lib/catalog/constants";
@@ -52,39 +54,76 @@ function DownloadSection({ storeHash, canWrite }: { storeHash: string | undefine
   );
 }
 
-type Backup = { file: string; ids: number[] };
+type Backup = { file: string; ids: number[]; sections: ClearableSection[] };
+type Counts = Record<string, { count: number; sample: string[] }>;
 
-// Clearing always starts with a download: the snapshot of exactly what is about to be deleted.
-function ClearBody({ storeHash, canWrite }: { storeHash: string | undefined; canWrite: boolean }) {
+const LABELS: Record<string, string> = Object.fromEntries(SAMPLE_SECTIONS.map((section) => [section.id, section.label]));
+const listOf = (ids: string[]) => ids.map((id) => LABELS[id] ?? id).join(", ");
+
+// Clearing always starts with a download: a snapshot of exactly what is about to be deleted.
+function ClearBody({ storeHash, canWrite, picked }: { storeHash: string | undefined; canWrite: boolean; picked: Set<string> }) {
   const router = useRouter();
   const [scope, setScope] = useState<"demo" | "all">("demo");
-  const [preview, setPreview] = useState<{ count: number; sample: string[] } | undefined>();
+  const [counts, setCounts] = useState<Counts>();
   const [confirmation, setConfirmation] = useState("");
   const [backup, setBackup] = useState<Backup>();
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState("");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [message, setMessage] = useState<Message>();
+  const [notes, setNotes] = useState<string[]>([]);
+
+  const others = CLEARABLE_SECTIONS.filter((id) => picked.has(id));
+  const withCatalog = picked.has("catalog");
+  const pickKey = [...picked].sort().join(",");
+
+  // Anything that changes what would be deleted starts the two steps over.
+  const [seen, setSeen] = useState(pickKey);
+
+  if (seen !== pickKey) {
+    setSeen(pickKey);
+    setCounts(undefined);
+    setConfirmation("");
+    setBackup(undefined);
+    setMessage(undefined);
+  }
 
   const reset = (next: "demo" | "all") => {
     setScope(next);
-    setPreview(undefined);
+    setCounts(undefined);
     setConfirmation("");
     setBackup(undefined);
     setMessage(undefined);
   };
+
+  const total = counts ? Object.values(counts).reduce((sum, entry) => sum + entry.count, 0) : 0;
 
   const runPreview = async () => {
     setBusy(true);
     setMessage(undefined);
 
     try {
-      const result = await previewClearAction(storeHash, { scope });
+      const found: Counts = {};
 
-      if (result.ok) setPreview(result.preview);
-      else setMessage({ ok: false, text: result.message });
+      if (withCatalog) {
+        const result = await previewClearAction(storeHash, { scope });
+
+        if (!result.ok) return setMessage({ ok: false, text: result.message });
+
+        found.catalog = result.preview;
+      }
+
+      if (others.length > 0) {
+        const result = await previewSectionsClearAction(storeHash, { sections: others });
+
+        if (!result.ok) return setMessage({ ok: false, text: result.message });
+
+        Object.assign(found, result.previews);
+      }
+
+      setCounts(found);
     } catch {
-      setMessage({ ok: false, text: "Couldn't count products. Try again." });
+      setMessage({ ok: false, text: "Couldn't count what would be deleted. Try again." });
     } finally {
       setBusy(false);
     }
@@ -96,18 +135,25 @@ function ClearBody({ storeHash, canWrite }: { storeHash: string | undefined; can
     setMessage(undefined);
 
     try {
-      const started = await startClearAction(storeHash, { scope, confirmation });
+      let ids: number[] = [];
 
-      if (!started.ok) return setMessage({ ok: false, text: started.message });
-      if (started.start.ids.length === 0) return setMessage({ ok: true, text: "Nothing to clear." });
+      if (withCatalog) {
+        const started = await startClearAction(storeHash, { scope, confirmation });
+
+        if (!started.ok) return setMessage({ ok: false, text: started.message });
+
+        ids = started.start.ids;
+      }
+
+      if (ids.length === 0 && others.length === 0) return setMessage({ ok: true, text: "Nothing to clear." });
 
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
       const snapshot = await buildStoreSnapshot(storeHash, {
-        name: `Backup before clearing (${scope === "all" ? "whole catalog" : "app-created products"})`,
+        name: `Backup before clearing (${listOf([...(withCatalog ? ["catalog"] : []), ...others])})`,
         slug: `backup-${stamp}`,
         notes: "Saved before a bulk clear.",
-        sections: [],
-        ids: started.start.ids,
+        sections: others,
+        ids,
         onProgress: (stage, fraction) => {
           setPhase(stage);
           setProgress({ done: Math.round(fraction * 100), total: 100 });
@@ -115,8 +161,8 @@ function ClearBody({ storeHash, canWrite }: { storeHash: string | undefined; can
       });
 
       downloadBytes(snapshot.file, snapshot.bytes);
-      setBackup({ file: snapshot.file, ids: started.start.ids });
-      setMessage({ ok: true, text: `Downloaded ${snapshot.file} with ${snapshot.counts.products} products and ${snapshot.counts.images} pictures. Check it saved, then delete.` });
+      setBackup({ file: snapshot.file, ids, sections: [...others] });
+      setMessage({ ok: true, text: `Downloaded ${snapshot.file} with ${snapshot.counts.products} products and ${snapshot.counts.images} pictures${others.length ? `, plus ${listOf(others)}` : ""}. Check it saved, then delete.` });
     } catch (failure) {
       setMessage({ ok: false, text: `Nothing was deleted. The backup couldn't be made: ${failure instanceof Error ? failure.message : "unknown error"}` });
     } finally {
@@ -125,30 +171,61 @@ function ClearBody({ storeHash, canWrite }: { storeHash: string | undefined; can
     }
   };
 
-  // Step 2: delete, once the backup has been downloaded.
+  // Step 2: delete, once the backup has been downloaded. Other sections go first, the catalog last.
   const clear = async () => {
     if (!backup) return;
 
     setBusy(true);
     setMessage(undefined);
-    setPhase("Deleting…");
+    setNotes([]);
 
-    let deleted = 0;
+    const problems: string[] = [];
+    const done: string[] = [];
 
     try {
-      setProgress({ done: 0, total: backup.ids.length });
+      for (const id of backup.sections) {
+        setPhase(`Clearing ${LABELS[id] ?? id}…`);
 
-      for (let start = 0; start < backup.ids.length; start += CLEAR_BATCH_SIZE) {
-        const result = await clearBatchAction(storeHash, { scope, ids: backup.ids.slice(start, start + CLEAR_BATCH_SIZE) });
+        let deleted = 0;
 
-        if (!result.ok) return setMessage({ ok: false, text: `${result.message} ${deleted} deleted before it stopped. Your backup is ${backup.file}.` });
+        for (let pass = 0; pass < 500; pass += 1) {
+          const result = await clearSectionStepAction(storeHash, { section: id, confirmation: CLEAR_CONFIRMATION });
 
-        deleted += result.batch.deleted;
-        setProgress({ done: deleted, total: backup.ids.length });
+          if (!result.ok) {
+            problems.push(`${LABELS[id] ?? id}: ${result.message}`);
+            break;
+          }
+
+          deleted += result.step.deleted;
+          problems.push(...result.step.warnings);
+          setNotes(problems.slice(0, 40));
+
+          if (result.step.remaining === 0 || result.step.deleted === 0) break;
+        }
+
+        done.push(`${deleted} from ${LABELS[id] ?? id}`);
       }
 
-      setMessage({ ok: true, text: `Cleared ${deleted} products. To undo, upload ${backup.file} above.` });
-      setPreview(undefined);
+      if (backup.ids.length > 0) {
+        setPhase("Clearing the catalog…");
+        setProgress({ done: 0, total: backup.ids.length });
+
+        let deleted = 0;
+
+        for (let start = 0; start < backup.ids.length; start += CLEAR_BATCH_SIZE) {
+          const result = await clearBatchAction(storeHash, { scope, ids: backup.ids.slice(start, start + CLEAR_BATCH_SIZE) });
+
+          if (!result.ok) return setMessage({ ok: false, text: `${result.message} ${deleted} products deleted before it stopped. Your backup is ${backup.file}.` });
+
+          deleted += result.batch.deleted;
+          setProgress({ done: deleted, total: backup.ids.length });
+        }
+
+        done.push(`${deleted} products`);
+      }
+
+      setMessage({ ok: problems.length === 0, text: `Cleared ${done.join(", ")}.${problems.length ? ` ${problems.length} item${problems.length === 1 ? "" : "s"} couldn't be removed (see below).` : ""} To undo, upload ${backup.file} above.` });
+      setCounts(undefined);
       setConfirmation("");
       setBackup(undefined);
     } catch {
@@ -160,25 +237,29 @@ function ClearBody({ storeHash, canWrite }: { storeHash: string | undefined; can
     }
   };
 
-  const armed = Boolean(preview && preview.count > 0 && confirmation === CLEAR_CONFIRMATION);
+  const armed = Boolean(counts && total > 0 && confirmation === CLEAR_CONFIRMATION);
 
   return (
     <>
-      <fieldset style={{ border: "none", padding: 0, margin: "0 0 12px" }} disabled={busy}>
-        <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}><input type="radio" name="scope" checked={scope === "demo"} onChange={() => reset("demo")} /> Only products this app created</label>
-        <label style={{ display: "block", fontSize: 14 }}><input type="radio" name="scope" checked={scope === "all"} onChange={() => reset("all")} /> The whole catalog</label>
-      </fieldset>
-      <button type="button" className="pp-btn" onClick={runPreview} disabled={busy || !canWrite}>Count what would be deleted</button>
-      {preview && (
+      {withCatalog && (
+        <fieldset style={{ border: "none", padding: 0, margin: "0 0 12px" }} disabled={busy}>
+          <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}><input type="radio" name="scope" checked={scope === "demo"} onChange={() => reset("demo")} /> Catalog: only products this app created</label>
+          <label style={{ display: "block", fontSize: 14 }}><input type="radio" name="scope" checked={scope === "all"} onChange={() => reset("all")} /> Catalog: the whole catalog</label>
+        </fieldset>
+      )}
+      <button type="button" className="pp-btn" onClick={runPreview} disabled={busy || !canWrite || picked.size === 0}>Count what would be deleted</button>
+      {counts && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 14 }}><strong>{preview.count}</strong> product{preview.count === 1 ? "" : "s"} would be deleted{preview.sample.length ? `, including ${preview.sample.join(", ")}` : ""}.</div>
-          {preview.count > 0 && (
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>
+            {Object.entries(counts).map(([id, entry]) => <li key={id}><strong>{entry.count}</strong> in {LABELS[id] ?? id}{entry.sample.length ? `, including ${entry.sample.join(", ")}` : ""}</li>)}
+          </ul>
+          {total > 0 && (
             <div style={{ marginTop: 12 }}>
               <label className="pp-field">Type {CLEAR_CONFIRMATION} to confirm<input className="pp-input" value={confirmation} onChange={(event) => { setConfirmation(event.target.value); setBackup(undefined); }} autoComplete="off" disabled={busy} /></label>
               {!backup ? (
                 <button type="button" className="pp-btn pp-btn--primary" onClick={downloadBackup} disabled={!armed || busy}>{busy ? phase || "Working…" : "Step 1: download a backup"}</button>
               ) : (
-                <button type="button" className="pp-btn pp-btn--danger" onClick={clear} disabled={busy}>{busy ? phase || "Clearing…" : `Step 2: delete ${backup.ids.length} products`}</button>
+                <button type="button" className="pp-btn pp-btn--danger" onClick={clear} disabled={busy}>{busy ? phase || "Clearing…" : `Step 2: delete ${total} item${total === 1 ? "" : "s"}`}</button>
               )}
             </div>
           )}
@@ -186,40 +267,63 @@ function ClearBody({ storeHash, canWrite }: { storeHash: string | undefined; can
       )}
       {busy && progress.total > 0 && <><Progress done={progress.done} total={progress.total} /><div className="pp-muted" style={{ fontSize: 13 }}>{phase}</div></>}
       <Msg message={message} />
+      {notes.length > 0 && <ul className="pp-errlist">{notes.map((note, i) => <li key={i}>{note}</li>)}</ul>}
     </>
   );
 }
 
-// The clear popup: pick which areas of the store to clear. Only the catalog can be cleared so far; the
-// others appear greyed out, like the sections when importing.
+// The clear popup: pick which areas of the store to clear. Settings-only sections can't be deleted, so
+// they are greyed out with the reason.
 function ClearSection({ storeHash, canWrite }: { storeHash: string | undefined; canWrite: boolean }) {
   const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set(["catalog"]));
+
+  const toggle = (id: string) => setPicked((current) => {
+    const next = new Set(current);
+
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+
+    return next;
+  });
 
   return (
-    <Section danger title="Clear your store" hint="Clear products, and soon other areas of the store, in bulk. A snapshot of what will be deleted is downloaded first, and nothing is deleted until you have it.">
+    <Section danger title="Clear your store" hint="Clear the catalog and other areas of the store in bulk. A snapshot of what will be deleted is downloaded first, and nothing is deleted until you have it.">
       <button type="button" className="pp-btn pp-btn--danger" onClick={() => setOpen(true)} disabled={!canWrite}>Clear sections…</button>
       {open && (
         <Modal title="Clear sections" onClose={() => setOpen(false)} wide footer={<button type="button" className="pp-btn" onClick={() => setOpen(false)}>Close</button>}>
           <ul className="pp-sections">
-            {SAMPLE_SECTIONS.map((section) => (
-              <li key={section.id} className={section.id === "catalog" ? "" : "is-off"}>
-                <label>
-                  <input type="checkbox" checked={section.id === "catalog"} disabled readOnly />
-                  <span>
-                    <strong>{section.label}</strong>
-                    {section.id === "catalog" ? <span className="pp-muted">Products and their images. Choose below whether to clear everything or only what this app created.</span> : <span className="pp-muted">{section.description}</span>}
-                    {section.id !== "catalog" && <em>Clearing this isn&apos;t available yet</em>}
-                  </span>
-                </label>
-              </li>
-            ))}
+            {SAMPLE_SECTIONS.map((section) => {
+              const ready = section.id === "catalog" || isClearable(section.id);
+
+              return (
+                <li key={section.id} className={ready ? "" : "is-off"}>
+                  <label>
+                    <input type="checkbox" checked={ready && picked.has(section.id)} disabled={!ready} onChange={() => toggle(section.id)} />
+                    <span>
+                      <strong>{section.label}</strong>
+                      <span className="pp-muted">{section.id === "catalog" ? "Products and their images. Choose below whether to clear everything or only what this app created." : ready ? CLEAR_WHAT[section.id] : section.description}</span>
+                      {!ready && <em>{CLEAR_REASONS[section.id] ?? "Can't be cleared."}</em>}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
           </ul>
-          <div style={{ marginTop: 20 }}><ClearBody storeHash={storeHash} canWrite={canWrite} /></div>
+          <div style={{ marginTop: 20 }}><ClearBody storeHash={storeHash} canWrite={canWrite} picked={picked} /></div>
         </Modal>
       )}
     </Section>
   );
 }
+
+const CLEAR_WHAT: Record<string, string> = {
+  shipping: "Deletes shipping zones and their methods. The default zone stays but loses its methods.",
+  tax: "Deletes tax rates, zones and custom tax classes. Tax settings stay as they are.",
+  pricing: "Deletes price lists (with their prices and assignments) and extra currencies. The default currency stays.",
+  inventory: "Deletes stock locations. The default location can't be removed. Inventory settings stay.",
+  b2b: "Deletes every B2B company with its users, and custom roles. This can't be undone except from the backup.",
+};
 
 function OlderCatalogs({ storeHash, packs }: { storeHash: string | undefined; packs: PackSummary[] }) {
   const router = useRouter();
