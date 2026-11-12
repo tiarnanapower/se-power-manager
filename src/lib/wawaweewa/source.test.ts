@@ -74,11 +74,13 @@ describe("Wawaweewa source", () => {
   });
 
   it("says which part couldn't be read instead of showing zero", async () => {
-    const preview = await previewSource(new Source({ "/v3/catalog/products": new Error("403") }), new Source({ "/companies": new Error("403") }));
+    const refused = Object.assign(new Error("403"), { status: 403 });
+    const preview = await previewSource(new Source({ "/v3/catalog/products": refused }), new Source({ "/companies": refused }));
 
     expect(preview.problems).toHaveLength(2);
     expect(preview.problems[0]).toContain("catalog");
-    expect(preview.problems[1]).toContain("B2B");
+    expect(preview.problems[0]).toContain("HTTP 403");
+    expect(preview.problems[1]).toContain("B2B Edition refused the token (HTTP 403)");
     expect(preview.companyTotal).toBeNull();
   });
 });

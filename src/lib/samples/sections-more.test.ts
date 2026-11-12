@@ -269,6 +269,6 @@ describe("B2B Edition", () => {
 
     const refusing = new Scripted({ "GET /companies": Object.assign(new Error("401"), { status: 401 }) });
 
-    expect((await captureB2b(new Scripted({}), { b2b: async () => refusing })).warnings.join(" ")).toContain("couldn't be reached");
+    expect((await captureB2b(new Scripted({}), { b2b: async () => refusing })).warnings.join(" ")).toContain("refused the token (HTTP 401)");
   });
 });

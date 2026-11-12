@@ -4,6 +4,7 @@ import type { PackProduct } from "@/lib/app-data/types";
 import type { BcRestApiClient, V3ListResponse } from "@/lib/bc-api-client/rest-client/types";
 import { countProducts, fetchBrands, fetchCategories, fetchProductRefs, fetchProducts } from "@/lib/catalog/catalog-api";
 import { buildCategoryPaths, toPackProduct, type ProductRef } from "@/lib/catalog/pack-mapper";
+import { b2bProblem } from "@/lib/samples/sections/b2b";
 import { asRecord, records, text } from "@/lib/samples/sections/shared";
 
 export interface SourcePlan {
@@ -46,8 +47,10 @@ export async function previewSource(client: BcRestApiClient, b2b: BcRestApiClien
 
     preview.productTotal = total;
     preview.products = page.data.data.map((product) => ({ name: product.name, sku: product.sku ?? "", price: typeof product.price === "number" ? product.price : null, image: product.primary_image?.url_thumbnail ?? null }));
-  } catch {
-    problems.push("The source store's catalog couldn't be read. Check WAWAWEEWA_ACCESS_TOKEN has the Products scope.");
+  } catch (error) {
+    const status = (error as { status?: number })?.status;
+
+    problems.push(`The source store's catalog couldn't be read${status ? ` (HTTP ${status})` : ""}. Check WAWAWEEWA_STORE_HASH and that WAWAWEEWA_ACCESS_TOKEN has the Products scope.`);
   }
 
   try {
@@ -56,8 +59,8 @@ export async function previewSource(client: BcRestApiClient, b2b: BcRestApiClien
 
     preview.companies = records(body?.data).map((company) => text(company.companyName)).filter(Boolean);
     preview.companyTotal = Number(asRecord(asRecord(body?.meta)?.pagination)?.totalCount ?? preview.companies.length);
-  } catch {
-    problems.push("B2B Edition couldn't be reached on the source store, so B2B companies can't be imported.");
+  } catch (error) {
+    problems.push(`${b2bProblem(error)} B2B companies can't be imported until this is fixed.`);
   }
 
   return preview;

@@ -32,6 +32,17 @@ export interface B2bData {
 
 const UNREACHABLE = "B2B Edition couldn't be reached with this store's token. The store needs B2B Edition, and the app needs permission to use it.";
 
+// Why a B2B request failed, in words that say what to check. The status is BigCommerce's own answer.
+export function b2bProblem(error: unknown): string {
+  const status = (error as { status?: number })?.status;
+
+  if (status === 401 || status === 403) return `B2B Edition refused the token (HTTP ${status}). Check the token belongs to this store, can use B2B Edition, and that B2B Edition's API access is switched on for the store.`;
+  if (status === 404) return "B2B Edition answered \"not found\" (HTTP 404). This store may not have B2B Edition.";
+  if (status) return `B2B Edition answered HTTP ${status}.`;
+
+  return `B2B Edition couldn't be reached (${describe(error)}).`;
+}
+
 // The B2B API pages with limit and offset, and wraps rows in { data: [...] }.
 async function readB2b(client: BcRestApiClient, path: string, params: Record<string, string | number> = {}): Promise<JsonRecord[]> {
   const rows: JsonRecord[] = [];
@@ -64,9 +75,13 @@ export async function captureB2b(_client: BcRestApiClient, extras: SectionExtras
   if (!extras.b2b) return { data: { companies: [] }, warnings: [UNREACHABLE] };
 
   const b2b = await extras.b2b();
-  const rows = await attempt("Companies", warnings, () => readB2b(b2b, "/companies"), null as JsonRecord[] | null);
+  let rows: JsonRecord[];
 
-  if (!rows) return { data: { companies: [] }, warnings: [UNREACHABLE, ...warnings] };
+  try {
+    rows = await readB2b(b2b, "/companies");
+  } catch (error) {
+    return { data: { companies: [] }, warnings: [b2bProblem(error)] };
+  }
 
   const companies: B2bCompany[] = [];
 
@@ -108,7 +123,7 @@ export async function importB2b(_client: BcRestApiClient, file: B2bData, extras:
 
   const b2b = await extras.b2b();
   const existing = await readB2b(b2b, "/companies").catch((error) => {
-    result.warnings.push(`${UNREACHABLE} (${describe(error)})`);
+    result.warnings.push(b2bProblem(error));
 
     return null;
   });

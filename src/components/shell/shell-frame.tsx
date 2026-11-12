@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { JobDock } from "@/components/jobs/job-dock";
 import { HeaderTitle } from "@/components/shell/header-title";
 import { MenuIcon } from "@/components/shell/icons";
 import { SidebarNav } from "@/components/shell/sidebar-nav";
@@ -38,6 +39,7 @@ export function ShellFrame({ children, banner, modeLabel }: { children: React.Re
           </main>
         </div>
       </div>
+      <JobDock />
     </div>
   );
 }

@@ -1,54 +1,49 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { finishWawaweewaPickListsAction, importWawaweewaB2bAction, importWawaweewaBatchAction, planWawaweewaAction, planWawaweewaB2bAction } from "@/app/store/[storeHash]/utilities/wawaweewa/actions";
 import { Section } from "@/components/features/ui";
+import { JobProgress } from "@/components/jobs/job-progress";
 import { SampleImage } from "@/components/samples/sample-image";
+import { WawaweewaSpinner } from "@/components/utilities/wawaweewa-spinner";
+import { dismissJob, finishJob, isCancelled, patchJob, requestCancel, startJob, useJob, type Job } from "@/lib/jobs/job-store";
 import type { SourcePreview } from "@/lib/wawaweewa/source";
 
-type Phase = "choose" | "running" | "done";
+const JOB = "wawaweewa";
+const path = (storeHash: string | undefined) => (storeHash ? `/store/${storeHash}/utilities/wawaweewa` : "/utilities/wawaweewa");
 
 const money = (value: number | null) => (value === null ? "" : value.toLocaleString("en-US", { style: "currency", currency: "USD" }));
 
 export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { storeHash: string | undefined; preview: SourcePreview; sourceLabel: string; canWrite: boolean }) {
   const [wantCatalog, setWantCatalog] = useState(preview.productTotal > 0);
   const [wantB2b, setWantB2b] = useState((preview.companyTotal ?? 0) > 0);
-  const [phase, setPhase] = useState<Phase>("choose");
-  const [stage, setStage] = useState("");
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [totals, setTotals] = useState({ created: 0, skipped: 0, failed: 0, imagesMissing: 0, pickLists: 0, companies: 0, companiesSkipped: 0 });
-  const [issues, setIssues] = useState<string[]>([]);
-  const [error, setError] = useState<string>();
-  const cancel = useRef(false);
+  // The run lives in the job store, so leaving this page and coming back shows where it got to.
+  const job = useJob(JOB);
+  const phase = job?.phase ?? "choose";
 
   const nothing = (!wantCatalog || preview.productTotal === 0) && (!wantB2b || !preview.companyTotal);
 
   const run = async () => {
-    cancel.current = false;
-    setPhase("running");
-    setError(undefined);
-    setIssues([]);
+    startJob(JOB, { title: "Wawaweewa import", href: path(storeHash), stage: "Starting" });
 
     const sum = { created: 0, skipped: 0, failed: 0, imagesMissing: 0, pickLists: 0, companies: 0, companiesSkipped: 0 };
     const notes: string[] = [];
-    const show = () => {
-      setTotals({ ...sum });
-      setIssues(notes.slice(0, 80));
-    };
+    const summary = () => [
+      wantCatalog ? `${sum.created} products created · ${sum.skipped} skipped · ${sum.failed} failed${sum.imagesMissing ? ` · ${sum.imagesMissing} pictures missing` : ""}${sum.pickLists ? ` · ${sum.pickLists} pick lists linked` : ""}` : "",
+      wantB2b ? `${sum.companies} B2B records created · ${sum.companiesSkipped} companies already there` : "",
+    ].filter(Boolean).join(" · ");
+    const show = (more: Partial<Job> = {}) => patchJob(JOB, { summary: summary(), issues: notes.slice(0, 80), ...more });
     const stopped = () => {
-      if (!cancel.current) return false;
+      if (!isCancelled(JOB)) return false;
 
-      setError("Stopped. Anything already created stays in your store.");
+      finishJob(JOB, { summary: summary(), issues: notes.slice(0, 80), error: "Stopped. Anything already created stays in your store." });
 
       return true;
     };
 
-    setTotals({ ...sum });
-
     try {
       if (wantCatalog) {
-        setStage("Reading the source catalog");
-        setProgress({ done: 0, total: preview.productTotal });
+        show({ stage: "Reading the source catalog", done: 0, total: preview.productTotal });
 
         const plan = await planWawaweewaAction(storeHash);
 
@@ -56,8 +51,7 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
 
         const { ids, refs } = plan.plan;
 
-        setProgress({ done: 0, total: ids.length });
-        setStage("Importing products");
+        show({ stage: "Importing products", done: 0, total: ids.length });
 
         for (let at = 0; at < ids.length; at += 10) {
           if (stopped()) return;
@@ -73,12 +67,11 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
           sum.failed += batch.failed;
           sum.imagesMissing += batch.imagesMissing;
           notes.push(...batch.errors.map((entry) => `${entry.name}: ${entry.reason}`), ...batch.differences.map((entry) => `${entry.name}: ${entry.detail}`));
-          setProgress({ done: Math.min(ids.length, at + 10), total: ids.length });
-          show();
+          show({ done: Math.min(ids.length, at + 10) });
         }
 
         // Pick lists point at other products, so they wait until every product exists.
-        setStage("Linking pick lists");
+        show({ stage: "Linking pick lists" });
 
         for (let at = 0; at < ids.length; at += 20) {
           if (stopped()) return;
@@ -97,8 +90,7 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
       }
 
       if (wantB2b) {
-        setStage("Reading the source B2B companies");
-        setProgress({ done: 0, total: 0 });
+        show({ stage: "Reading the source B2B companies", done: 0, total: 0 });
 
         const plan = await planWawaweewaB2bAction(storeHash);
 
@@ -108,8 +100,7 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
 
         const { companies } = plan;
 
-        setProgress({ done: 0, total: companies.length });
-        setStage("Importing B2B companies and users");
+        show({ stage: "Importing B2B companies and users", done: 0, total: companies.length });
 
         for (let at = 0; at < companies.length; at += 3) {
           if (stopped()) return;
@@ -121,16 +112,13 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
           sum.companies += result.result.created;
           sum.companiesSkipped += result.result.skipped;
           notes.push(...result.result.warnings);
-          setProgress({ done: Math.min(companies.length, at + 3), total: companies.length });
-          show();
+          show({ done: Math.min(companies.length, at + 3) });
         }
       }
 
-      show();
+      finishJob(JOB, { summary: summary(), issues: notes.slice(0, 80) });
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Lost contact with the server. Anything already created stays in your store.");
-    } finally {
-      setPhase("done");
+      finishJob(JOB, { summary: summary(), issues: notes.slice(0, 80), error: failure instanceof Error ? failure.message : "Lost contact with the server. Anything already created stays in your store." });
     }
   };
 
@@ -187,24 +175,20 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
         )}
         <div style={{ marginTop: 20 }}>
           {phase === "running" ? (
-            <button type="button" className="pp-btn" onClick={() => { cancel.current = true; }}>Stop after this batch</button>
+            <button type="button" className="pp-btn" disabled={job?.cancelRequested} onClick={() => requestCancel(JOB)}>{job?.cancelRequested ? "Stopping…" : "Stop after this batch"}</button>
           ) : (
-            <button type="button" className="pp-btn pp-btn--primary" onClick={run} disabled={!canWrite || nothing}>{phase === "done" ? "Import again" : "Import into my store"}</button>
+            <button type="button" className="pp-btn pp-btn--primary" onClick={() => { dismissJob(JOB); void run(); }} disabled={!canWrite || nothing}>{phase === "done" ? "Import again" : "Import into my store"}</button>
           )}
         </div>
       </Section>
 
-      {phase !== "choose" && (
-        <Section title={phase === "running" ? stage : "Finished"}>
-          {(progress.total > 0 || phase === "running") && <div className={`pp-progress${phase === "running" ? " is-active" : ""}`}><span style={{ width: `${progress.total ? Math.min(100, (progress.done / progress.total) * 100) : 0}%` }} /></div>}
-          <div className="pp-muted" style={{ fontSize: 13 }}>
-            {progress.done} of {progress.total}
-            {wantCatalog ? ` · ${totals.created} products created · ${totals.skipped} skipped · ${totals.failed} failed${totals.imagesMissing ? ` · ${totals.imagesMissing} pictures missing` : ""}${totals.pickLists ? ` · ${totals.pickLists} pick lists linked` : ""}` : ""}
-            {wantB2b ? ` · ${totals.companies} B2B records created · ${totals.companiesSkipped} companies already there` : ""}
-          </div>
-          {error && <div role="status" className="pp-msg pp-msg--err">{error}</div>}
-          {phase === "done" && !error && <div role="status" className={`pp-msg ${totals.failed ? "pp-msg--err" : "pp-msg--ok"}`}>Done.</div>}
-          {issues.length > 0 && <ul className="pp-errlist">{issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>}
+      {job && (
+        <Section title={job.phase === "running" ? job.stage : "Finished"}>
+          {job.phase === "running" && <WawaweewaSpinner small label="Importing" />}
+          <JobProgress job={job} />
+          {job.error && <div role="status" className="pp-msg pp-msg--err">{job.error}</div>}
+          {job.phase === "done" && !job.error && <div role="status" className="pp-msg pp-msg--ok">Done.</div>}
+          {job.issues.length > 0 && <ul className="pp-errlist">{job.issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>}
         </Section>
       )}
     </>

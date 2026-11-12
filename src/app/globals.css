@@ -875,3 +875,18 @@ body { background: var(--pp-bg); }
 .pp-deploy__field.is-invalid .pp-input { border-color: var(--pp-danger, #e5484d); }
 .pp-deploy__problem { color: var(--pp-danger, #ff8a8f); font-size: 12px; font-weight: 400; }
 .pp-deploy__note { margin: 10px 0 0; font-size: 13px; color: var(--pp-muted); }
+
+/* ---------- Running imports (floating card) ---------- */
+.pp-dock { position: fixed; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 32px)); }
+.pp-dock__job { padding: 14px 16px; }
+.pp-dock__job .pp-progress { max-width: none; }
+.pp-dock__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
+.pp-dock__actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ---------- Wawaweewa spinner ---------- */
+.pp-wawa-spin { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 0; }
+.pp-wawa-spin img { width: 96px; height: 96px; border-radius: 9999px; object-fit: cover; animation: pp-wawa-spin 1.4s linear infinite; }
+.pp-wawa-spin--small img { width: 40px; height: 40px; }
+.pp-wawa-spin--small { flex-direction: row; padding: 8px 0; }
+@keyframes pp-wawa-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pp-wawa-spin img { animation-duration: 6s; } }
