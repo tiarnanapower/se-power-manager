@@ -817,8 +817,8 @@ a { color: var(--cmrc-accent); }
 .pp-btn--primary:hover:not([disabled]) { background: var(--cmrc-solid-hover); border-color: var(--cmrc-solid-hover); box-shadow: none; filter: none; }
 .pp-btn--primary:active:not([disabled]) { background: #3f27b8; border-color: #3f27b8; }
 
-/* Selected menu item: a soft purple tint with a thin bar on the left */
-.pp-nav__item[aria-current="page"] { background: var(--cmrc-tint); box-shadow: inset 3px 0 0 #8f82ff; color: #ffffff; }
+/* Selected menu item: a soft purple tint with a thin border all round */
+.pp-nav__item[aria-current="page"] { background: var(--cmrc-tint); box-shadow: inset 0 0 0 1px var(--cmrc-edge); color: #ffffff; }
 .pp-nav__item[aria-current="page"] svg { color: #c4bcff; }
 .pp-nav__item:hover:not([aria-current="page"]) { background: rgba(255, 255, 255, 0.06); }
 
