@@ -14,7 +14,7 @@ const path = (storeHash: string | undefined) => (storeHash ? `/store/${storeHash
 
 const money = (value: number | null) => (value === null ? "" : value.toLocaleString("en-US", { style: "currency", currency: "USD" }));
 
-export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { storeHash: string | undefined; preview: SourcePreview; sourceLabel: string; canWrite: boolean }) {
+export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite, tokenHint }: { storeHash: string | undefined; preview: SourcePreview; sourceLabel: string; canWrite: boolean; tokenHint?: string }) {
   const [wantCatalog, setWantCatalog] = useState(preview.productTotal > 0);
   const [wantB2b, setWantB2b] = useState((preview.companyTotal ?? 0) > 0);
   // The run lives in the job store, so leaving this page and coming back shows where it got to.
@@ -130,6 +130,7 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
           <div><dt>B2B companies</dt><dd>{preview.companyTotal ?? "—"}</dd></div>
         </dl>
         {preview.problems.map((problem) => <div key={problem} className="pp-warn" style={{ marginTop: 12 }}>{problem}</div>)}
+        {tokenHint && <p className="pp-muted" style={{ marginTop: 8, fontSize: 13 }}>{tokenHint} Compare it with the token you created.</p>}
       </Section>
 
       <Section title="What to import" hint="Pick what to bring into your store. Existing products with the same SKU and companies with the same name are skipped, and nothing is deleted.">
