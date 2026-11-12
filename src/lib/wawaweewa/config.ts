@@ -26,9 +26,13 @@ export function getWawaweewaStatus(): { configured: boolean; label: string } {
 
 // Always shown on the page: enough to tell which token the server has, never enough to use it.
 export function getWawaweewaTokenHint(): string | undefined {
-  const token = getWawaweewaConfig()?.accessToken;
+  const config = getWawaweewaConfig();
 
-  return token ? `The token the server is using starts with "${token.slice(0, 4)}" and is ${token.length} characters long.` : undefined;
+  if (!config) return undefined;
+
+  const { accessToken: token, storeHash: hash } = config;
+
+  return `The token the server is using starts with "${token.slice(0, 4)}" and is ${token.length} characters long. The store hash starts with "${hash.slice(0, 3)}", ends with "${hash.slice(-3)}" and is ${hash.length} characters long.`;
 }
 
 function configOrThrow() {
