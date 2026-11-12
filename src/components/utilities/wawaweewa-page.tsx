@@ -28,7 +28,7 @@ export async function WawaweewaPage({ params }: PageProps) {
 
   return (
     <FeaturePage itemId="wawaweewa">
-      {!status.configured ? <NotConfigured what="The source store" vars={WAWAWEEWA_VARS} /> : failure || !preview ? <LoadError header="Couldn't reach the source store" text={failure ?? "No answer."} /> : <WawaweewaView storeHash={storeHash} preview={preview} sourceLabel={status.label} canWrite={getDataMode() !== "MOCK"} tokenHint={preview.problems.length > 0 ? getWawaweewaTokenHint() : undefined} />}
+      {!status.configured ? <NotConfigured what="The source store" vars={WAWAWEEWA_VARS} /> : failure || !preview ? <LoadError header="Couldn't reach the source store" text={failure ?? "No answer."} /> : <WawaweewaView storeHash={storeHash} preview={preview} sourceLabel={status.label} canWrite={getDataMode() !== "MOCK"} tokenHint={getWawaweewaTokenHint()} />}
     </FeaturePage>
   );
 }
