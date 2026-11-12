@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAppDataStore } from "@/lib/app-data/get-app-data-store";
 import type { AppDataStore } from "@/lib/app-data/types";
 import { getDataMode } from "@/lib/bc-api-client/data-mode";
+import { getB2bClient } from "@/lib/bc-api-client/b2b-client";
 import { getRestApiClient } from "@/lib/bc-api-client/get-rest-api-client";
 import type { OpsContext } from "@/lib/catalog/operations";
 import { AppError } from "@/lib/errors/app-error";
@@ -66,7 +67,7 @@ export async function runStoreAction<T>(storeHash: unknown, context: string, wor
   try {
     const local = await localContext(auth.hash);
 
-    return { ok: true, ...(await work({ ...local, client: await getRestApiClient(auth.hash) })) };
+    return { ok: true, ...(await work({ ...local, client: await getRestApiClient(auth.hash), b2b: () => getB2bClient(auth.hash) })) };
   } catch (error) {
     return failure(context, error);
   }

@@ -8,7 +8,7 @@ import { getImage, getProduct, getProducts, getSectionFile, getVersion } from "@
 import { isSectionModule } from "@/lib/samples/sections";
 import { runSectionImport } from "@/lib/samples/sections/run";
 import type { SectionResult } from "@/lib/samples/sections/shared";
-import { isSlug, isVersion, SAMPLE_SECTIONS, type SampleProduct } from "@/lib/samples/format";
+import { isLocale, isSlug, isVersion, SAMPLE_SECTIONS, type SampleProduct } from "@/lib/samples/format";
 import { AppError } from "@/lib/errors/app-error";
 
 const target = z.object({ slug: z.string().refine(isSlug), version: z.string().refine(isVersion) });
@@ -93,7 +93,7 @@ export async function listImportableSectionsAction(storeHash: unknown, input: un
 
 // Imports one non-catalog section (shipping, tax, ...). These are small, so one request does the section.
 export async function importSampleSectionAction(storeHash: unknown, input: unknown): Promise<Outcome<{ result: SectionResult }>> {
-  const parsed = target.extend({ section: z.string() }).safeParse(input);
+  const parsed = target.extend({ section: z.string(), defaultLanguage: z.string().refine(isLocale).optional() }).safeParse(input);
 
   if (!parsed.success || !isSectionModule(parsed.data.section)) return { ok: false, message: "That section can't be imported yet." };
 
@@ -106,6 +106,6 @@ export async function importSampleSectionAction(storeHash: unknown, input: unkno
 
     const data = await getSectionFile<never>(slug, version, entry.file);
 
-    return { result: await runSectionImport(ctx, section, data, `sample "${slug}" ${version}`) };
+    return { result: await runSectionImport(ctx, section, data, `sample "${slug}" ${version}`, { defaultLanguage: parsed.data.defaultLanguage }) };
   });
 }

@@ -20,6 +20,8 @@ export interface OpsContext {
   userEmail: string | null;
   // Decides whether a pack image URL still exists. Tests replace it.
   imageCheck?: ImageCheck;
+  // A client for the B2B Edition API, made when a section needs it.
+  b2b?: () => Promise<BcRestApiClient>;
 }
 
 export type ClearScope = "all" | "demo";

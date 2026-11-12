@@ -7,8 +7,8 @@ import { AppError } from "@/lib/errors/app-error";
 
 const API_BASE_URL = "https://api.bigcommerce.com";
 
-function buildUrl(storeHash: string, path: string, params: ApiRequestOptions["params"]): string {
-  const url = new URL(`${API_BASE_URL}/stores/${storeHash}${path}`);
+function buildUrl(storeHash: string, path: string, params: ApiRequestOptions["params"], base?: string): string {
+  const url = new URL(base ? `${base}${path}` : `${API_BASE_URL}/stores/${storeHash}${path}`);
 
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined && value !== "") {
@@ -80,7 +80,8 @@ function logApiRequest(method: string, url: string, status: number, durationMs: 
 // are resolved (see get-rest-api-client.ts), not in how requests are made, so
 // this class is agnostic to which mode constructed it.
 export class RestApiClient implements BcRestApiClient {
-  constructor(private readonly credentials: StoreApiCredentials) {}
+  // `base` points the client at another BigCommerce API host (B2B Edition) instead of the store API.
+  constructor(private readonly credentials: StoreApiCredentials, private readonly base?: string) {}
 
   private getCredentialsOrThrow(): { storeHash: string; apiToken: string } {
     const { storeHash, apiToken } = this.credentials;
@@ -94,7 +95,7 @@ export class RestApiClient implements BcRestApiClient {
 
   async get<TResponse>(path: string, options: ApiRequestOptions = {}): Promise<ApiResponse<TResponse>> {
     const { storeHash, apiToken } = this.getCredentialsOrThrow();
-    const url = buildUrl(storeHash, path, options.params);
+    const url = buildUrl(storeHash, path, options.params, this.base);
 
     const startedAt = performance.now();
     let response: Response;
@@ -105,6 +106,8 @@ export class RestApiClient implements BcRestApiClient {
           headers: {
             "X-Auth-Token": apiToken,
             Accept: "application/json",
+            // The B2B Edition API asks which store the token is for.
+            ...(this.base ? { "X-Store-Hash": storeHash } : {}),
           },
           signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
           ...toFetchCacheOptions(options.cache),
@@ -136,7 +139,7 @@ export class RestApiClient implements BcRestApiClient {
     options: ApiMutationOptions = {},
   ): Promise<ApiResponse<TResponse>> {
     const { storeHash, apiToken } = this.getCredentialsOrThrow();
-    const url = buildUrl(storeHash, path, undefined);
+    const url = buildUrl(storeHash, path, undefined, this.base);
 
     const startedAt = performance.now();
     let response: Response;
@@ -148,6 +151,7 @@ export class RestApiClient implements BcRestApiClient {
           headers: {
             "X-Auth-Token": apiToken,
             Accept: "application/json",
+            ...(this.base ? { "X-Store-Hash": storeHash } : {}),
             // A FormData body (image uploads) sets its own multipart boundary.
             ...(options.body !== undefined && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
           },

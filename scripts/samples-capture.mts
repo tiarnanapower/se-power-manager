@@ -31,15 +31,16 @@ if (!name || !storeHash || !token) {
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
-// A read-only client: capture only ever reads from the store.
-const client: BcRestApiClient = {
+// A read-only client: capture only ever reads from the store. `base` is the API root, so the same
+// client also reaches the B2B Edition API.
+const readOnlyClient = (base: string): BcRestApiClient => ({
   async get<T>(path: string, options: ApiRequestOptions = {}): Promise<ApiResponse<T>> {
-    const url = new URL(`https://api.bigcommerce.com/stores/${storeHash}${path}`);
+    const url = new URL(`${base}${path}`);
 
     for (const [key, value] of Object.entries(options.params ?? {})) if (value !== undefined) url.searchParams.set(key, String(value));
 
     for (let attempt = 0; ; attempt += 1) {
-      const response = await fetch(url, { headers: { "X-Auth-Token": token, Accept: "application/json" } });
+      const response = await fetch(url, { headers: { "X-Auth-Token": token, Accept: "application/json", ...(base.includes("api-b2b") ? { "X-Store-Hash": storeHash } : {}) } });
 
       if (response.status === 429 && attempt < 6) {
         await sleep(Number(response.headers.get("X-Rate-Limit-Time-Reset-Ms") ?? 1000) + 200);
@@ -50,10 +51,20 @@ const client: BcRestApiClient = {
       return { data: (response.status === 204 ? undefined : await response.json()) as T, headers: response.headers };
     }
   },
-  async post() { throw new Error("capture is read-only"); },
+  // The GraphQL Admin API (translations) is a POST that only reads; every other write is refused.
+  async post<T>(path: string, options: { body?: unknown } = {}): Promise<ApiResponse<T>> {
+    if (path !== "/graphql" || /\bmutation\b/i.test(String((options.body as { query?: string } | undefined)?.query ?? ""))) throw new Error("capture is read-only");
+
+    const response = await fetch(`${base}${path}`, { method: "POST", headers: { "X-Auth-Token": token, Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(options.body) });
+
+    if (!response.ok) throw new Error(`POST ${path} failed: ${response.status} ${(await response.text()).slice(0, 200)}`);
+
+    return { data: (await response.json()) as T, headers: response.headers };
+  },
   async put() { throw new Error("capture is read-only"); },
   async delete() { throw new Error("capture is read-only"); },
-};
+});
+const client = readOnlyClient(`https://api.bigcommerce.com/stores/${storeHash}`);
 
 const storeName = await client.get<{ name?: string }>("/v2/store").then((response) => response.data.name ?? null).catch(() => null);
 
@@ -66,6 +77,7 @@ const result = await captureCatalogSample(client, {
   // e.g. --sections shipping,tax (the catalog is always captured)
   sections: flag("sections")?.split(",").map((id) => id.trim()).filter(Boolean) as SampleSectionId[] | undefined,
   storeName,
+  b2b: async () => readOnlyClient("https://api-b2b.bigcommerce.com/api/v3/io"),
   readExisting: async (path) => {
     const file = join(out, path);
 

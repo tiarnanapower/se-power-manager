@@ -24,6 +24,8 @@ export interface CaptureOptions {
   // Downloads a product image. Returns undefined if it can't be fetched.
   fetchImage: (url: string) => Promise<{ bytes: Buffer; mime: string } | undefined>;
   now?: () => Date;
+  // A client for the B2B Edition API, when that section is captured.
+  b2b?: () => Promise<BcRestApiClient>;
 }
 
 export type CaptureResult = AssembleResult;
@@ -49,7 +51,7 @@ export async function captureCatalogSample(client: BcRestApiClient, options: Cap
       continue;
     }
 
-    sections[id] = await sectionModule.capture(client);
+    sections[id] = await sectionModule.capture(client, { b2b: options.b2b });
   }
 
   return assembleSample(

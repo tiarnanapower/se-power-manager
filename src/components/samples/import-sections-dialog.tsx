@@ -113,7 +113,7 @@ export function ImportSectionsDialog({ source, onClose }: Props) {
 
         setStage(`Importing ${sectionLabel(id)}`);
 
-        const done = await source.importSection(id);
+        const done = await source.importSection(id, { defaultLanguage: language });
 
         if (!done.ok) {
           notes.push(`${sectionLabel(id)}: ${done.message}`);
@@ -178,7 +178,7 @@ export function ImportSectionsDialog({ source, onClose }: Props) {
               <select className="pp-input" value={language} onChange={(event) => setLanguage(event.target.value)}>
                 {languages.map((code) => <option key={code} value={code}>{languageName(code)}{code === defaultLanguage ? " (sample default)" : ""}</option>)}
               </select>
-              <span className="pp-muted" style={{ fontWeight: 400 }}>Applied when the Localization section is imported. It isn&apos;t available yet.</span>
+              <span className="pp-muted" style={{ fontWeight: 400 }}>Applied when the Localization section is imported.</span>
             </label>
           )}
         </>

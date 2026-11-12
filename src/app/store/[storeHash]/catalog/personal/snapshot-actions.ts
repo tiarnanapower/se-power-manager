@@ -82,7 +82,7 @@ export async function snapshotSectionAction(storeHash: unknown, input: unknown):
   const section = parsed.data.section;
 
   return runStoreAction(storeHash, "snapshotSectionAction", async (ctx) => {
-    const captured = await SECTION_MODULES[section]!.capture(ctx.client);
+    const captured = await SECTION_MODULES[section]!.capture(ctx.client, { b2b: ctx.b2b });
 
     return { data: captured.data, warnings: captured.warnings };
   });

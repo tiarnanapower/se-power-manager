@@ -24,7 +24,7 @@ export interface ImportSource {
   defaultLanguage: string;
   importBatch: (offset: number) => Promise<Outcome<{ batch: RestoreBatchResult }>>;
   finishPickLists: (offset: number) => Promise<Outcome<PickListStep>>;
-  importSection: (id: SampleSectionId) => Promise<Outcome<{ result: SectionResult }>>;
+  importSection: (id: SampleSectionId, options?: { defaultLanguage?: string }) => Promise<Outcome<{ result: SectionResult }>>;
 }
 
 export function repoSource(storeHash: string | undefined, sample: { slug: string; name: string; version: string; productCount: number; manifest: SampleManifest; languages: string[]; defaultLanguage: string }): ImportSource {
@@ -38,7 +38,7 @@ export function repoSource(storeHash: string | undefined, sample: { slug: string
 
       return result.ok ? { ok: true, nextOffset: result.nextOffset, done: result.done, created: result.created, warnings: result.warnings } : result;
     },
-    importSection: (id) => importSampleSectionAction(storeHash, { ...target, section: id }),
+    importSection: (id, options) => importSampleSectionAction(storeHash, { ...target, section: id, defaultLanguage: options?.defaultLanguage }),
   };
 }
 
@@ -100,13 +100,13 @@ export function uploadSource(storeHash: string | undefined, sample: BundleSample
 
       return result.ok ? { ok: true, nextOffset: offset + page.length, done: offset + page.length >= total || page.length === 0, created: result.created, warnings: result.warnings } : result;
     },
-    importSection: async (id) => {
+    importSection: async (id, options) => {
       const entry = sample.manifest.sections[id];
 
       if (!entry) return { ok: false, message: "That section isn't in this snapshot." };
 
       try {
-        return await importUploadSectionAction(storeHash, { label: `${sample.name} ${sample.version}`, section: id, data: sample.section(entry.file) });
+        return await importUploadSectionAction(storeHash, { label: `${sample.name} ${sample.version}`, section: id, data: sample.section(entry.file), defaultLanguage: options?.defaultLanguage });
       } catch (error) {
         return { ok: false, message: error instanceof Error ? error.message : "Couldn't read that section." };
       }

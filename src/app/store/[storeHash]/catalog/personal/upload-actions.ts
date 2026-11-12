@@ -5,7 +5,7 @@ import { type Outcome, runStoreAction } from "@/lib/actions/run-action";
 import { finishPickLists } from "@/lib/catalog/pick-lists";
 import { restoreProducts, type RestoreBatchResult } from "@/lib/catalog/operations";
 import { AppError } from "@/lib/errors/app-error";
-import { isImageFile, SAMPLE_SECTIONS } from "@/lib/samples/format";
+import { isImageFile, isLocale, SAMPLE_SECTIONS } from "@/lib/samples/format";
 import { isSectionModule } from "@/lib/samples/sections";
 import { runSectionImport } from "@/lib/samples/sections/run";
 import type { SectionResult } from "@/lib/samples/sections/shared";
@@ -75,9 +75,9 @@ export async function finishUploadPickListsAction(storeHash: unknown, input: unk
 }
 
 export async function importUploadSectionAction(storeHash: unknown, input: unknown): Promise<Outcome<{ result: SectionResult }>> {
-  const parsed = z.object({ label, section: z.string().refine((id) => SAMPLE_SECTIONS.some((section) => section.id === id) && isSectionModule(id)), data: z.unknown() }).safeParse(input);
+  const parsed = z.object({ label, section: z.string().refine((id) => SAMPLE_SECTIONS.some((section) => section.id === id) && isSectionModule(id)), data: z.unknown(), defaultLanguage: z.string().refine(isLocale).optional() }).safeParse(input);
 
   if (!parsed.success) return { ok: false, message: "That section can't be imported yet." };
 
-  return runStoreAction(storeHash, "importUploadSectionAction", async (ctx) => ({ result: await runSectionImport(ctx, parsed.data.section, parsed.data.data, `uploaded snapshot "${parsed.data.label}"`) }));
+  return runStoreAction(storeHash, "importUploadSectionAction", async (ctx) => ({ result: await runSectionImport(ctx, parsed.data.section, parsed.data.data, `uploaded snapshot "${parsed.data.label}"`, { defaultLanguage: parsed.data.defaultLanguage }) }));
 }

@@ -5,10 +5,10 @@ import { AppError } from "@/lib/errors/app-error";
 import { isSectionModule, SECTION_MODULES } from "@/lib/samples/sections";
 import type { SectionResult } from "@/lib/samples/sections/shared";
 
-export async function runSectionImport(ctx: OpsContext, section: string, data: unknown, label: string): Promise<SectionResult> {
+export async function runSectionImport(ctx: OpsContext, section: string, data: unknown, label: string, options: { defaultLanguage?: string } = {}): Promise<SectionResult> {
   if (!isSectionModule(section)) throw new AppError("VALIDATION", "That section can't be imported yet.", { detail: "That section can't be imported yet." });
 
-  const result = await SECTION_MODULES[section]!.import(ctx.client, data as never);
+  const result = await SECTION_MODULES[section]!.import(ctx.client, data as never, { b2b: ctx.b2b, defaultLanguage: options.defaultLanguage });
 
   await ctx.data.logActivity({
     storeHash: ctx.storeHash,

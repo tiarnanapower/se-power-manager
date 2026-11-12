@@ -21,12 +21,12 @@ export const SAMPLE_SECTIONS = [
   { id: "catalog", label: "Catalog", description: "Categories, brands, products, variants, options, custom fields, pick lists and images.", defaultChecked: true, implemented: true },
   { id: "shipping", label: "Shipping", description: "Shipping zones and their methods.", defaultChecked: false, implemented: true },
   { id: "tax", label: "Tax", description: "Tax zones, rates and settings.", defaultChecked: false, implemented: true },
-  { id: "pricing", label: "Pricing & currencies", description: "Currencies and price lists with their records.", defaultChecked: false, implemented: false },
-  { id: "storefront", label: "Storefront settings", description: "Branding, SEO, display, catalog, search and privacy settings.", defaultChecked: false, implemented: false },
-  { id: "checkout", label: "Checkout & customer experience", description: "Checkout, cart, order and abandoned-cart settings.", defaultChecked: false, implemented: false },
-  { id: "inventory", label: "Inventory & locations", description: "Inventory settings and locations.", defaultChecked: false, implemented: false },
-  { id: "b2b", label: "B2B Edition", description: "Companies, users, roles, quotes and orders.", defaultChecked: false, implemented: false },
-  { id: "localization", label: "Localization", description: "Translations of products and categories, and the default language.", defaultChecked: false, implemented: false },
+  { id: "pricing", label: "Pricing & currencies", description: "Currencies, price lists and their prices. Prices find their products by SKU, so import the catalog first.", defaultChecked: false, implemented: true },
+  { id: "storefront", label: "Storefront settings", description: "SEO, search, product and category display, robots.txt, security and catalog settings. Replaces the store's current values.", defaultChecked: false, implemented: true },
+  { id: "checkout", label: "Checkout & customer experience", description: "Checkout, cart and abandoned-cart settings. Replaces the store's current values.", defaultChecked: false, implemented: true },
+  { id: "inventory", label: "Inventory & locations", description: "Inventory settings and stock locations. Replaces the store's inventory settings.", defaultChecked: false, implemented: true },
+  { id: "b2b", label: "B2B Edition", description: "Companies and their users. Quotes, orders and custom roles aren't included. Needs B2B Edition on the store.", defaultChecked: false, implemented: true },
+  { id: "localization", label: "Localization", description: "Languages per channel, the default language, and product translations. Products are found by SKU, so import the catalog first.", defaultChecked: false, implemented: true },
 ] as const;
 
 export type SampleSectionId = (typeof SAMPLE_SECTIONS)[number]["id"];

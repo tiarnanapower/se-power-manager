@@ -158,13 +158,15 @@ export async function assembleSample(input: AssembleInput, options: AssembleOpti
     warnings.push(...captured.warnings.map((warning) => `${id}: ${warning}`));
   }
 
+  // Languages the localization section knows about make the sample's language list.
+  const localization = input.sections?.localization?.data as { languages?: string[]; defaultLanguage?: string } | undefined;
   const manifest: SampleManifest = {
     formatVersion: SAMPLE_FORMAT_VERSION,
     slug,
     version,
     capturedAt: now,
     source: { storeName: options.storeName ?? null },
-    defaultLanguage: options.defaultLanguage ?? existingMeta?.defaultLanguage ?? "en",
+    defaultLanguage: options.defaultLanguage ?? localization?.defaultLanguage ?? existingMeta?.defaultLanguage ?? "en",
     sections: { catalog: { file: "catalog.json", counts: { products: sampleProducts.length, categories: catalog.categories.length, brands: catalog.brands.length }, warnings: warnings.filter((warning) => !/^[a-z]+: /.test(warning) || warning.includes("couldn't download")).slice(0, 20) }, ...extra },
     images: imageFiles.size,
   };
@@ -178,7 +180,7 @@ export async function assembleSample(input: AssembleInput, options: AssembleOpti
     tags: options.tags ?? existingMeta?.tags ?? [],
     latest: version,
     defaultLanguage: manifest.defaultLanguage,
-    languages: existingMeta?.languages ?? [manifest.defaultLanguage],
+    languages: [...new Set([...(existingMeta?.languages ?? []), manifest.defaultLanguage, ...(localization?.languages ?? [])])],
     versions: [...(existingMeta?.versions ?? []), { version, date: now, notes: options.notes ?? "", formatVersion: SAMPLE_FORMAT_VERSION, sections: Object.keys(manifest.sections) as SampleSectionId[], products: sampleProducts.length }],
   };
 
