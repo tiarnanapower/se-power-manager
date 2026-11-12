@@ -33,11 +33,12 @@ export interface B2bData {
 const UNREACHABLE = "B2B Edition couldn't be reached with this store's token. The store needs B2B Edition, and the app needs permission to use it.";
 
 // Why a B2B request failed, in words that say what to check. The status is BigCommerce's own answer.
-export function b2bProblem(error: unknown): string {
+export function b2bProblem(error: unknown, store: "source" | "your" = "source"): string {
   const status = (error as { status?: number })?.status;
   const said = (error as { detail?: unknown })?.detail;
   const why = typeof said === "string" && said ? ` B2B Edition said: "${said}".` : "";
 
+  if ((status === 401 || status === 403) && store === "your") return `Your store's B2B Edition refused the app's token (HTTP ${status}), so nothing could be created there. The app needs the B2B Edition scope (modify) and your store needs B2B Edition switched on. After adding the scope to the app, reinstall or re-authorise it on this store.${why}`;
   if (status === 401 || status === 403) return `B2B Edition refused the token (HTTP ${status}). Check the token belongs to this store, can use B2B Edition, and that B2B Edition's API access is switched on for the store.${why}`;
   if (status === 404) return `B2B Edition answered "not found" (HTTP 404). This store may not have B2B Edition.${why}`;
   if (status) return `B2B Edition answered HTTP ${status}.${why}`;
@@ -125,7 +126,7 @@ export async function importB2b(_client: BcRestApiClient, file: B2bData, extras:
 
   const b2b = await extras.b2b();
   const existing = await readB2b(b2b, "/companies").catch((error) => {
-    result.warnings.push(b2bProblem(error));
+    result.warnings.push(b2bProblem(error, "your"));
 
     return null;
   });
