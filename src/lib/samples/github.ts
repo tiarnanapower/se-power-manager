@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { AppError } from "@/lib/errors/app-error";
 
-const DEFAULT_REPO = "tiarnanapower/bc-sample-data";
+const DEFAULT_REPO = "BigCommerceDemo/se-demo-catalogs";
 const DEFAULT_REF = "main";
 const TEXT_TTL_MS = 5 * 60_000;
 const MAX_CACHED_BYTES = 40 * 1024 * 1024;

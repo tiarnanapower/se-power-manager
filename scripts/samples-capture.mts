@@ -1,7 +1,7 @@
 // Captures a BigCommerce store's catalog as a new version of a sample, written to a local clone of the
 // samples repo. Nothing is pushed: review the files, then commit them yourself.
 //
-//   pnpm samples:capture --name "Outdoor Retailer" --out ../bc-sample-data \
+//   pnpm samples:capture --name "Outdoor Retailer" --out ../se-demo-catalogs \
 //     [--slug outdoor-retailer] [--description "..."] [--tags uk,outdoor] [--notes "What changed"] \
 //     [--sections shipping,tax]
 //
@@ -20,12 +20,12 @@ const flag = (name: string): string | undefined => {
 };
 
 const name = flag("name");
-const out = resolve(flag("out") ?? "../bc-sample-data");
+const out = resolve(flag("out") ?? "../se-demo-catalogs");
 const storeHash = flag("store-hash") ?? process.env.STATIC_STORE_HASH;
 const token = flag("token") ?? process.env.STATIC_STORE_TOKEN;
 
 if (!name || !storeHash || !token) {
-  console.error('Usage: pnpm samples:capture --name "Sample name" [--out ../bc-sample-data]\nNeeds STATIC_STORE_HASH and STATIC_STORE_TOKEN in .env.local (or --store-hash and --token).');
+  console.error('Usage: pnpm samples:capture --name "Sample name" [--out ../se-demo-catalogs]\nNeeds STATIC_STORE_HASH and STATIC_STORE_TOKEN in .env.local (or --store-hash and --token).');
   process.exit(1);
 }
 

@@ -18,6 +18,9 @@ Names changed along the way. Current names first, old names in brackets:
 
 ## 2026-11-12
 
+### Demo Snapshots read from a private repo
+- The default repo is now **`BigCommerceDemo/se-demo-catalogs`** (branch `main`). It is private, so `SAMPLES_GITHUB_TOKEN` must be set (a fine-grained token with Contents: read-only on that repo) in Vercel and in `.env.local`, then redeployed. The capture script's default output folder is now `../se-demo-catalogs`.
+
 ### Names and menu (`9aa716a`)
 - **Store Templates is now Demo Snapshots.** Renamed in the menu, page text, dialogs, comments and `.env.example`. Web addresses are unchanged, so old links still work.
 - **The Import menu group is now Snapshot Manager.** It holds Demo Snapshots, My Snapshots and Import From External Site.
