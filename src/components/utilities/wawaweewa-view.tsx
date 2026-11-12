@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { finishWawaweewaPickListsAction, importWawaweewaB2bAction, importWawaweewaBatchAction, planWawaweewaAction, planWawaweewaB2bAction } from "@/app/store/[storeHash]/utilities/wawaweewa/actions";
+import { finishWawaweewaPickListsAction, importWawaweewaB2bAction, importWawaweewaBatchAction, importWawaweewaOrdersAction, importWawaweewaQuotesAction, importWawaweewaRolesAction, planWawaweewaAction, planWawaweewaB2bAction, planWawaweewaOrdersAction, planWawaweewaQuotesAction } from "@/app/store/[storeHash]/utilities/wawaweewa/actions";
 import { Section } from "@/components/features/ui";
 import { JobProgress } from "@/components/jobs/job-progress";
 import { SampleImage } from "@/components/samples/sample-image";
@@ -17,20 +17,28 @@ const money = (value: number | null) => (value === null ? "" : value.toLocaleStr
 export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { storeHash: string | undefined; preview: SourcePreview; sourceLabel: string; canWrite: boolean }) {
   const [wantCatalog, setWantCatalog] = useState(preview.productTotal > 0);
   const [wantB2b, setWantB2b] = useState((preview.companyTotal ?? 0) > 0);
+  // Roles, quotes and orders hang off B2B companies, so they follow the B2B part being available.
+  const [wantRoles, setWantRoles] = useState(false);
+  const [wantQuotes, setWantQuotes] = useState(false);
+  const [wantOrders, setWantOrders] = useState(false);
   // The run lives in the job store, so leaving this page and coming back shows where it got to.
   const job = useJob(JOB);
   const phase = job?.phase ?? "choose";
 
-  const nothing = (!wantCatalog || preview.productTotal === 0) && (!wantB2b || !preview.companyTotal);
+  const hasB2b = Boolean(preview.companyTotal);
+  const nothing = (!wantCatalog || preview.productTotal === 0) && !(hasB2b && (wantB2b || wantRoles || wantQuotes || wantOrders));
 
   const run = async () => {
     startJob(JOB, { title: "Wawaweewa import", href: path(storeHash), stage: "Starting" });
 
-    const sum = { created: 0, skipped: 0, failed: 0, imagesMissing: 0, pickLists: 0, companies: 0, companiesSkipped: 0 };
+    const sum = { created: 0, skipped: 0, failed: 0, imagesMissing: 0, pickLists: 0, companies: 0, companiesSkipped: 0, roles: 0, quotes: 0, orders: 0 };
     const notes: string[] = [];
     const summary = () => [
       wantCatalog ? `${sum.created} products created · ${sum.skipped} skipped · ${sum.failed} failed${sum.imagesMissing ? ` · ${sum.imagesMissing} pictures missing` : ""}${sum.pickLists ? ` · ${sum.pickLists} pick lists linked` : ""}` : "",
+      wantRoles ? `${sum.roles} roles created` : "",
       wantB2b ? `${sum.companies} B2B records created · ${sum.companiesSkipped} companies already there` : "",
+      wantQuotes ? `${sum.quotes} quotes created` : "",
+      wantOrders ? `${sum.orders} orders created` : "",
     ].filter(Boolean).join(" · ");
     const show = (more: Partial<Job> = {}) => patchJob(JOB, { summary: summary(), issues: notes.slice(0, 80), ...more });
     const stopped = () => {
@@ -89,6 +97,21 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
         }
       }
 
+      // Custom roles first, so users can be given the role they had.
+      if (hasB2b && wantRoles) {
+        if (stopped()) return;
+
+        show({ stage: "Copying custom roles", done: 0, total: 0 });
+
+        const result = await importWawaweewaRolesAction(storeHash);
+
+        if (!result.ok) throw new Error(result.message);
+
+        sum.roles += result.result.created;
+        notes.push(...result.result.warnings);
+        show();
+      }
+
       if (wantB2b) {
         show({ stage: "Reading the source B2B companies", done: 0, total: 0 });
 
@@ -113,6 +136,34 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
           sum.companiesSkipped += result.result.skipped;
           notes.push(...result.result.warnings);
           show({ done: Math.min(companies.length, at + 3) });
+        }
+      }
+
+      // Quotes and orders need the catalog and the companies and users to be in the store already.
+      for (const [wanted, label, plan, importBatch, count] of [
+        [wantQuotes, "quotes", planWawaweewaQuotesAction, importWawaweewaQuotesAction, (created: number) => { sum.quotes += created; }],
+        [wantOrders, "orders", planWawaweewaOrdersAction, importWawaweewaOrdersAction, (created: number) => { sum.orders += created; }],
+      ] as const) {
+        if (!hasB2b || !wanted) continue;
+
+        show({ stage: `Reading the source ${label}`, done: 0, total: 0 });
+
+        const found = await plan(storeHash);
+
+        if (!found.ok) throw new Error(found.message);
+
+        show({ stage: `Importing ${label}`, done: 0, total: found.ids.length });
+
+        for (let at = 0; at < found.ids.length; at += 5) {
+          if (stopped()) return;
+
+          const result = await importBatch(storeHash, { ids: found.ids.slice(at, at + 5) });
+
+          if (!result.ok) throw new Error(result.message);
+
+          count(result.result.created);
+          notes.push(...result.result.warnings);
+          show({ done: Math.min(found.ids.length, at + 5) });
         }
       }
 
@@ -148,10 +199,25 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite }: { s
               <input type="checkbox" checked={wantB2b && Boolean(preview.companyTotal)} disabled={!preview.companyTotal || phase === "running"} onChange={(event) => setWantB2b(event.target.checked)} />
               <span>
                 <strong>B2B companies and users</strong>
-                <span className="pp-muted">Each company with its administrator and other users. Quotes, orders and custom roles aren&apos;t included. Your store needs B2B Edition.</span>
+                <span className="pp-muted">Each company with its administrator and other users. Your store needs B2B Edition.</span>
               </span>
             </label>
           </li>
+          {[
+            { id: "roles", label: "Custom roles", text: "The source's custom B2B roles and their permissions. Users get the role they had. Done before the companies.", checked: wantRoles, set: setWantRoles },
+            { id: "quotes", label: "Quotes", text: "Each quote is recreated for its company with products matched by SKU. Needs the catalog and companies to be in your store already.", checked: wantQuotes, set: setWantQuotes },
+            { id: "orders", label: "Orders", text: "Each B2B order is created as a real order in your store for the matching buyer and attached to their company. Needs the catalog and users to be in your store already. This adds historic orders to your store.", checked: wantOrders, set: setWantOrders },
+          ].map((option) => (
+            <li key={option.id} className={hasB2b ? "" : "is-off"}>
+              <label>
+                <input type="checkbox" checked={option.checked && hasB2b} disabled={!hasB2b || phase === "running"} onChange={(event) => option.set(event.target.checked)} />
+                <span>
+                  <strong>{option.label}</strong>
+                  <span className="pp-muted">{option.text}</span>
+                </span>
+              </label>
+            </li>
+          ))}
         </ul>
         {preview.products.length > 0 && (
           <>

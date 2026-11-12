@@ -18,6 +18,12 @@ Names changed along the way. Current names first, old names in brackets:
 
 ## 2026-11-12
 
+### Wawaweewa: custom roles, quotes and orders
+- Three new tick boxes on the Wawaweewa page: **Custom roles**, **Quotes** and **Orders**. Each SE chooses what to bring in.
+- **Custom roles** are copied first, and users are given the role they had. **Quotes** are recreated for their company with products matched by SKU. **Orders** are created as real orders for the matching buyer and attached to their company.
+- Quotes and orders need the catalog and the companies and users to be in the store already, and anything that can't be matched is skipped with a reason. Orders need the app to have Orders modify, and the source token needs Orders read-only. **Untested against real stores.**
+- The destination store's B2B refusal now says it is the destination, and gives B2B's own reason.
+
 ### Utilities > Wawaweewa
 - A new Utilities item that imports from a **shared source store that has B2B data** into the SE's own store. It plays the part the Big Gear pages were meant to, but the source is a different store, set by the operator with `WAWAWEEWA_STORE_HASH` and `WAWAWEEWA_ACCESS_TOKEN` (read-only use; the same token reaches that store's B2B API). SEs never see the token.
 - **Catalog:** products, categories, brands, variants, options, custom fields, pick lists (linked in a second pass) and pictures. Pictures are fetched from the source store's CDN by BigCommerce itself. Products with an existing SKU are skipped.

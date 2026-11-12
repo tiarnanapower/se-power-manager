@@ -11,6 +11,8 @@ export interface B2bUser {
   phoneNumber: string;
   // 0 admin, 1 senior buyer, 2 junior buyer.
   role: number;
+  // The name of a custom role the user has, so it can be matched in the destination.
+  roleName?: string;
 }
 
 export interface B2bCompany {
@@ -47,7 +49,7 @@ export function b2bProblem(error: unknown, store: "source" | "your" = "source"):
 }
 
 // The B2B API pages with limit and offset, and wraps rows in { data: [...] }.
-async function readB2b(client: BcRestApiClient, path: string, params: Record<string, string | number> = {}): Promise<JsonRecord[]> {
+export async function readB2b(client: BcRestApiClient, path: string, params: Record<string, string | number> = {}): Promise<JsonRecord[]> {
   const rows: JsonRecord[] = [];
 
   for (let offset = 0; offset < 100_000; ) {
@@ -66,7 +68,7 @@ async function readB2b(client: BcRestApiClient, path: string, params: Record<str
   return rows;
 }
 
-const first = (row: JsonRecord, ...names: string[]): string => {
+export const first = (row: JsonRecord, ...names: string[]): string => {
   for (const name of names) if (text(row[name])) return text(row[name]);
 
   return "";
@@ -106,7 +108,7 @@ export async function captureB2b(_client: BcRestApiClient, extras: SectionExtras
       state: first(row, "state"),
       country: first(row, "country"),
       zipCode: first(row, "zipCode"),
-      users: users.map((user) => ({ firstName: first(user, "firstName"), lastName: first(user, "lastName"), email: first(user, "email"), phoneNumber: first(user, "phoneNumber", "phone"), role: Number(user.role ?? 2) })),
+      users: users.map((user) => ({ firstName: first(user, "firstName"), lastName: first(user, "lastName"), email: first(user, "email"), phoneNumber: first(user, "phoneNumber", "phone"), role: Number(user.role ?? 2), ...(first(user, "companyRoleName") ? { roleName: first(user, "companyRoleName") } : {}) })),
     });
   }
 
@@ -132,6 +134,15 @@ export async function importB2b(_client: BcRestApiClient, file: B2bData, extras:
   });
 
   if (!existing) return result;
+
+  // Custom roles already in this store, by name, so users can be given the same role they had.
+  const roleIds = new Map<string, number>();
+
+  for (const role of await readB2b(b2b, "/companies/roles").catch(() => [] as JsonRecord[])) {
+    const id = positiveInt(role.id);
+
+    if (id && first(role, "name")) roleIds.set(key(first(role, "name")), id);
+  }
 
   for (const company of file.companies ?? []) {
     if (existing.some((row) => key(first(row, "companyName", "name")) === key(company.companyName))) {
@@ -177,7 +188,7 @@ export async function importB2b(_client: BcRestApiClient, file: B2bData, extras:
         }
 
         try {
-          await b2b.post("/users", { body: { companyId, email: user.email, firstName: user.firstName, lastName: user.lastName, phoneNumber: user.phoneNumber, role: user.role } });
+          await b2b.post("/users", { body: { companyId, email: user.email, firstName: user.firstName, lastName: user.lastName, phoneNumber: user.phoneNumber, role: user.role, ...(user.roleName && roleIds.has(key(user.roleName)) ? { companyRoleId: roleIds.get(key(user.roleName)) } : {}) } });
           result.created += 1;
         } catch (error) {
           result.warnings.push(`User ${user.email} of ${company.companyName}: ${describe(error)}`);
