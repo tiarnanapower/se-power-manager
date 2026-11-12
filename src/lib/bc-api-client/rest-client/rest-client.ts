@@ -50,15 +50,20 @@ async function parseJsonResponse<TResponse>(response: Response, path: string): P
 // `message` (v2). Returns a bounded copy so a caller can tell the user *why* a
 // write was rejected (duplicate SKU, invalid field) without leaking the body.
 async function readErrorTitle(response: Response): Promise<string | undefined> {
+  let raw = "";
+
   try {
-    const body = (await response.json()) as { title?: unknown; message?: unknown; errors?: unknown };
-    const base = typeof body.title === "string" ? body.title : typeof body.message === "string" ? body.message : undefined;
+    raw = await response.text();
+
+    const body = JSON.parse(raw) as { title?: unknown; message?: unknown; errors?: unknown; meta?: { message?: unknown }; data?: { errMsg?: unknown; message?: unknown } };
+    const base = [body.title, body.message, body.meta?.message, body.data?.errMsg, body.data?.message].find((value): value is string => typeof value === "string" && value.length > 0);
     const errors = body.errors && typeof body.errors === "object" ? Object.values(body.errors as Record<string, unknown>).filter((value): value is string => typeof value === "string") : [];
     const text = [base, ...errors].filter(Boolean).join(" ");
 
-    return text ? text.slice(0, 300) : undefined;
+    // An unfamiliar shape: show the start of the body rather than nothing.
+    return (text || raw).trim().slice(0, 300) || undefined;
   } catch {
-    return undefined;
+    return raw.trim().slice(0, 300) || undefined;
   }
 }
 
