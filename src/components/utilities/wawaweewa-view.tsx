@@ -152,8 +152,8 @@ export function WawaweewaView({ storeHash, preview, sourceLabel, canWrite, token
         </div>
         {probeError && <div className="pp-msg pp-msg--err">{probeError}</div>}
         {probes && (
-          <ul className="pp-errlist" style={{ marginTop: 10 }}>
-            {probes.map((entry) => <li key={entry.label}><strong>{entry.label}:</strong> {entry.status}{entry.contentType ? ` (${entry.contentType})` : ""} {entry.body}</li>)}
+          <ul style={{ marginTop: 10, paddingLeft: 18, fontSize: 13 }}>
+            {probes.map((entry) => <li key={entry.label} style={{ marginBottom: 6, wordBreak: "break-word" }}><strong>{entry.status === 200 ? "✓" : "✗"} {entry.label}:</strong> <span className={entry.status === 200 ? "pp-msg--ok" : "pp-msg--err"}>{entry.status}</span>{entry.contentType ? ` (${entry.contentType})` : ""} <span className="pp-muted">{entry.body}</span></li>)}
           </ul>
         )}
       </Section>

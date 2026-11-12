@@ -75,7 +75,20 @@ export async function probeB2b(): Promise<B2bProbe[]> {
     ["Auth headers with a browser-style user agent", { ...auth, "User-Agent": "curl/8.7.1", Accept: "*/*" }],
   ];
 
-  return Promise.all(variants.map(async ([label, headers]): Promise<B2bProbe> => {
+  const viaClient = async (): Promise<B2bProbe> => {
+    try {
+      const { data } = await getWawaweewaB2bClient().get<unknown>("/companies", { params: { limit: 8, offset: 0 } });
+
+      return { label: "Through the app's own client (what the page uses)", status: 200, contentType: "", body: JSON.stringify(data).slice(0, 160) };
+    } catch (error) {
+      const status = (error as { status?: number })?.status ?? "failed";
+      const said = (error as { detail?: string })?.detail ?? (error instanceof Error ? error.message : "");
+
+      return { label: "Through the app's own client (what the page uses)", status, contentType: "", body: said.slice(0, 160) };
+    }
+  };
+
+  return Promise.all([viaClient(), ...variants.map(async ([label, headers]): Promise<B2bProbe> => {
     try {
       const response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) });
       const body = (await response.text()).replace(accessToken, "[token]").slice(0, 160);
@@ -84,5 +97,5 @@ export async function probeB2b(): Promise<B2bProbe[]> {
     } catch (error) {
       return { label, status: "no answer", contentType: "", body: error instanceof Error ? error.message.slice(0, 160) : "Request failed." };
     }
-  }));
+  })]);
 }
