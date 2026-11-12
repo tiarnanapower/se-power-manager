@@ -115,7 +115,8 @@ export class RestApiClient implements BcRestApiClient {
             ...(this.base ? { "X-Store-Hash": storeHash } : {}),
           },
           signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
-          ...toFetchCacheOptions(options.cache),
+          // B2B Edition answers are never cached: a refusal must not outlive the token that caused it.
+          ...(this.base ? ({ cache: "no-store" } as const) : toFetchCacheOptions(options.cache)),
         }),
       );
     } catch (error) {
