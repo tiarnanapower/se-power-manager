@@ -49,7 +49,7 @@ body {
 .pp-brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 20px; color: #fff; text-decoration: none; }
 .pp-brand__mark {
   width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0;
-  background: var(--cmrc-gradient); color: #fff; box-shadow: 0 4px 14px rgba(108, 100, 245, 0.45);
+  background: var(--cmrc-solid); color: #fff;
 }
 .pp-brand__name { font-weight: 700; font-size: 15px; line-height: 1.1; }
 .pp-brand__sub { font-size: 11px; color: var(--pp-nav-text); font-weight: 500; }
@@ -800,55 +800,46 @@ a { color: var(--cmrc-accent); }
 .pp-product__raw pre { max-height: 300px; overflow: auto; background: var(--pp-bg); padding: 14px; border-radius: 10px; font-size: 12px; }
 @media (max-width: 900px) { .pp-sample__head { grid-template-columns: 1fr; } .pp-sample__actions { flex-wrap: wrap; } }
 
-/* ---------- Deep Commerce purple (#170245) with a gradient that lightens toward the edge ----------
-   Fills use the deep colour as their darkest point and brighten to a violet glow, like demoenv's green
-   buttons. Text and thin outlines use the lighter accents, since #170245 alone is too dark to read on
-   the dark page. */
+/* ---------- Commerce purple, flat ----------
+   One solid purple for actions, #170245 as the deep tone behind it, and plain tints for selection.
+   No gradients, glows or drop shadows. */
 :root {
   --cmrc-deep: #170245;
-  --cmrc-glow: #6a4dff;
-  --cmrc-grad: linear-gradient(135deg, #170245 0%, #33179a 50%, #6a4dff 100%);
-  --cmrc-grad-hover: linear-gradient(135deg, #1f0460 0%, #4023b8 50%, #8268ff 100%);
-  --cmrc-grad-bar: linear-gradient(90deg, #2a0f8a 0%, #5a3ff0 55%, #9a86ff 100%);
-  --cmrc-edge: rgba(150, 132, 255, 0.5);
-  --cmrc-gradient: var(--cmrc-grad);
+  --cmrc-solid: #4a2fd0;
+  --cmrc-solid-hover: #5a40e0;
+  --cmrc-tint: rgba(122, 109, 255, 0.16);
+  --cmrc-edge: rgba(150, 132, 255, 0.35);
+  --cmrc-gradient: var(--cmrc-solid);
 }
 
 /* Buttons */
-.pp-btn--primary {
-  background: var(--cmrc-grad);
-  border: 1px solid var(--cmrc-edge);
-  color: #ffffff;
-  box-shadow: 0 6px 18px rgba(80, 50, 220, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-}
-.pp-btn--primary:hover:not([disabled]) { background: var(--cmrc-grad-hover); border-color: rgba(180, 166, 255, 0.7); box-shadow: 0 8px 24px rgba(100, 70, 240, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
-.pp-btn--primary:active:not([disabled]) { transform: translateY(1px); }
+.pp-btn--primary { background: var(--cmrc-solid); border: 1px solid var(--cmrc-solid); color: #ffffff; box-shadow: none; }
+.pp-btn--primary:hover:not([disabled]) { background: var(--cmrc-solid-hover); border-color: var(--cmrc-solid-hover); box-shadow: none; filter: none; }
+.pp-btn--primary:active:not([disabled]) { background: #3f27b8; border-color: #3f27b8; }
 
-/* Selected menu item: dark on the left, a violet glow on the right edge */
-.pp-nav__item[aria-current="page"] {
-  background: linear-gradient(90deg, #15151f 0%, #170245 62%, #4b30d6 100%);
-  box-shadow: inset 0 0 0 1px rgba(143, 130, 255, 0.28);
-  color: #ffffff;
-}
-.pp-nav__item[aria-current="page"] svg { color: #bdb2ff; }
-.pp-nav__item:hover:not([aria-current="page"]) { background: linear-gradient(90deg, transparent 0%, rgba(23, 2, 69, 0.8) 100%); }
+/* Selected menu item: a soft purple tint with a thin bar on the left */
+.pp-nav__item[aria-current="page"] { background: var(--cmrc-tint); box-shadow: inset 3px 0 0 #8f82ff; color: #ffffff; }
+.pp-nav__item[aria-current="page"] svg { color: #c4bcff; }
+.pp-nav__item:hover:not([aria-current="page"]) { background: rgba(255, 255, 255, 0.06); }
 
 /* Bars, tabs, chips, switches */
-.pp-progress > span, .pp-progress.is-active > span { background-image: var(--cmrc-grad-bar); background-color: #5a3ff0; }
-.pp-progress.is-active > span { background-image: linear-gradient(110deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 70%), var(--cmrc-grad-bar); background-size: 200% 100%, 100% 100%; }
-.pp-tabs__tab[aria-selected="true"] { border-bottom-color: transparent; border-image: linear-gradient(90deg, #4b30d6, #b9acff) 1; color: #d6cfff; }
-.pp-chip[aria-pressed="true"] { background: var(--cmrc-grad); border-color: var(--cmrc-edge); color: #fff; }
-.pp-seg__btn[aria-pressed="true"] { background: var(--cmrc-grad); color: #fff; }
-.pp-pill--live { background: linear-gradient(90deg, rgba(23, 2, 69, 0.9), rgba(90, 63, 240, 0.35)); color: #d6cfff; box-shadow: inset 0 0 0 1px rgba(143, 130, 255, 0.25); }
+.pp-progress > span, .pp-progress.is-active > span { background: var(--cmrc-solid); }
+.pp-progress.is-active > span { background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0 8px, transparent 8px 16px); background-size: 22px 100%; animation: pp-stripes 0.9s linear infinite; }
+@keyframes pp-stripes { to { background-position: 22px 0; } }
+.pp-tabs__tab[aria-selected="true"] { border-image: none; border-bottom-color: #8f82ff; color: #e2deff; }
+.pp-chip[aria-pressed="true"] { background: var(--cmrc-solid); border-color: var(--cmrc-solid); color: #fff; }
+.pp-seg__btn[aria-pressed="true"] { background: var(--cmrc-solid); color: #fff; }
+.pp-pill--live { background: rgba(122, 109, 255, 0.16); color: #d6cfff; box-shadow: none; }
 input[type="checkbox"], input[type="radio"] { accent-color: #6a4dff; }
 .pp-sample__product:hover, .pp-sample__versions li.is-current { border-color: rgba(143, 130, 255, 0.7); }
 
-/* Background glow in the same purple */
-body { background: radial-gradient(1100px 520px at 90% -12%, rgba(75, 48, 214, 0.2), transparent 62%), var(--pp-bg); background-attachment: fixed; }
+/* Plain page and card backgrounds */
+body { background: var(--pp-bg); }
+.pp-card { background: var(--pp-surface); }
 
 /* Enrich Tool (Tailwind utilities) */
-.enrich-root .bg-bc-blue-500 { background-image: var(--cmrc-grad); background-color: #170245; border-color: var(--cmrc-edge); }
-.enrich-root .hover\:bg-bc-blue-600:hover { background-image: var(--cmrc-grad-hover); background-color: #1f0460; }
+.enrich-root .bg-bc-blue-500 { background-image: none; background-color: var(--cmrc-solid); border-color: var(--cmrc-solid); }
+.enrich-root .hover\:bg-bc-blue-600:hover { background-image: none; background-color: var(--cmrc-solid-hover); }
 
 /* Personal Catalog export */
 .pp-steps { margin: 14px 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
