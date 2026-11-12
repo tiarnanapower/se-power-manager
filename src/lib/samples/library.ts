@@ -1,4 +1,4 @@
-// What the Sample Catalog pages and import need from the samples repo.
+// What the Store Templates pages and import need from the samples repo.
 import "server-only";
 import { AppError } from "@/lib/errors/app-error";
 import { listCommits, readBytes, readJson, type CommitInfo } from "@/lib/samples/github";

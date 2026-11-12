@@ -9,6 +9,8 @@ interface Props {
   storeHash: string | undefined;
   // Loads the product to show: from a sample in the repo, or from a saved pack.
   load: () => Promise<{ ok: true; product: SampleProduct } | { ok: false; message: string }>;
+  // Draws a picture held in the browser (an uploaded snapshot) instead of fetching it from the repo.
+  renderImage?: (file: string, className: string) => React.ReactNode;
   onClose: () => void;
 }
 
@@ -31,7 +33,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return <div className="pp-product__row"><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
-export function ProductModal({ storeHash, load, onClose }: Props) {
+export function ProductModal({ storeHash, load, renderImage, onClose }: Props) {
   const [product, setProduct] = useState<SampleProduct>();
   const [error, setError] = useState<string>();
   const loader = useRef(load);
@@ -58,7 +60,7 @@ export function ProductModal({ storeHash, load, onClose }: Props) {
       {product && (
         <div className="pp-product">
           <div className="pp-product__gallery">
-            {(raw.images ?? []).length === 0 ? <div className="pp-empty">No images</div> : raw.images?.map((image, i) => <SampleImage key={image.file ?? image.url ?? i} file={image.file ?? null} src={image.url || null} storeHash={storeHash} className="pp-product__img" />)}
+            {(raw.images ?? []).length === 0 ? <div className="pp-empty">No images</div> : raw.images?.map((image, i) => (renderImage && image.file ? renderImage(image.file, "pp-product__img") : <SampleImage key={image.file ?? image.url ?? i} file={image.file ?? null} src={image.url || null} storeHash={storeHash} className="pp-product__img" />))}
           </div>
           <dl className="pp-product__facts">
             <Row label="SKU">{product.sku ?? "—"}</Row>

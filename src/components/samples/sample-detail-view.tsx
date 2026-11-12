@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ImportSectionsDialog } from "@/components/samples/import-sections-dialog";
+import { repoSource } from "@/components/samples/import-source";
 import { getSampleProductAction } from "@/app/store/[storeHash]/catalog/samples/actions";
 import { ProductModal } from "@/components/samples/product-modal";
 import { SampleImage } from "@/components/samples/sample-image";
@@ -43,7 +44,7 @@ export function SampleDetailView({ storeHash, bundle, history, historyNote, canI
     <>
       <section className="pp-card pp-section pp-sample__head">
         <div className="pp-sample__title">
-          <Link className="pp-sample__back" href={getAppUrl(storeHash, "/catalog/samples")}>← Sample Catalog</Link>
+          <Link className="pp-sample__back" href={getAppUrl(storeHash, "/catalog/samples")}>← Store Templates</Link>
           <h2>{meta.name}</h2>
           {meta.description && <p className="pp-section__hint">{meta.description}</p>}
           <div className="pp-pack__chips">
@@ -159,7 +160,7 @@ export function SampleDetailView({ storeHash, bundle, history, historyNote, canI
       )}
 
       {openIndex !== undefined && <ProductModal storeHash={storeHash} load={() => getSampleProductAction(storeHash, { slug: meta.slug, version, index: openIndex })} onClose={() => setOpenIndex(undefined)} />}
-      {importing && <ImportSectionsDialog storeHash={storeHash} productCount={products.length} slug={meta.slug} name={meta.name} version={version} manifest={manifest} languages={meta.languages} defaultLanguage={meta.defaultLanguage} onClose={() => setImporting(false)} />}
+      {importing && <ImportSectionsDialog source={repoSource(storeHash, { slug: meta.slug, name: meta.name, version, productCount: products.length, manifest, languages: meta.languages, defaultLanguage: meta.defaultLanguage })} onClose={() => setImporting(false)} />}
     </>
   );
 }

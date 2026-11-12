@@ -42,6 +42,11 @@ export async function fetchProductNames(client: BcRestApiClient, ids?: number[],
   return data.data;
 }
 
+// Just enough of every product to find it again by SKU or name (pick lists point at other products).
+export async function fetchProductRefs(client: BcRestApiClient): Promise<{ id: number; name: string; sku: string | null }[]> {
+  return (await listAll<{ id: number; name: string; sku?: string }>(client, "/v3/catalog/products", { include_fields: "id,name,sku" })).map((product) => ({ id: product.id, name: product.name, sku: product.sku || null }));
+}
+
 export async function fetchAllProductIds(client: BcRestApiClient): Promise<number[]> {
   return (await listAll<{ id: number }>(client, "/v3/catalog/products", { include_fields: "id" })).map((product) => product.id);
 }

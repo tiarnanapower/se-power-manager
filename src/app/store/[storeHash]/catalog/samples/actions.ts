@@ -5,7 +5,8 @@ import { type Outcome, runLocalAction, runStoreAction } from "@/lib/actions/run-
 import { finishPickLists } from "@/lib/catalog/pick-lists";
 import { RESTORE_BATCH_SIZE, restoreProducts, type RestoreBatchResult } from "@/lib/catalog/operations";
 import { getImage, getProduct, getProducts, getSectionFile, getVersion } from "@/lib/samples/library";
-import { SECTION_MODULES, isSectionModule } from "@/lib/samples/sections";
+import { isSectionModule } from "@/lib/samples/sections";
+import { runSectionImport } from "@/lib/samples/sections/run";
 import type { SectionResult } from "@/lib/samples/sections/shared";
 import { isSlug, isVersion, SAMPLE_SECTIONS, type SampleProduct } from "@/lib/samples/format";
 import { AppError } from "@/lib/errors/app-error";
@@ -104,16 +105,7 @@ export async function importSampleSectionAction(storeHash: unknown, input: unkno
     if (!entry) throw new AppError("VALIDATION", "Not in this sample.", { detail: "This version of the sample doesn't include that section." });
 
     const data = await getSectionFile<never>(slug, version, entry.file);
-    const result = await SECTION_MODULES[section as keyof typeof SECTION_MODULES]!.import(ctx.client, data);
 
-    await ctx.data.logActivity({
-      storeHash: ctx.storeHash,
-      userEmail: ctx.userEmail,
-      kind: "samples.import-section",
-      summary: `Imported ${section} from sample "${slug}" ${version}: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped${result.warnings.length ? `, ${result.warnings.length} warnings` : ""}.`,
-      status: result.warnings.length ? "partial" : "success",
-    });
-
-    return { result };
+    return { result: await runSectionImport(ctx, section, data, `sample "${slug}" ${version}`) };
   });
 }

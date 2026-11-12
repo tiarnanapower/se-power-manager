@@ -8,43 +8,19 @@ import {
   type ClearBatchResult,
   type ClearPreview,
   type ClearStart,
-  preserveImages,
-  type PreserveImagesResult,
   previewClear,
   restoreBatch,
   type RestoreBatchResult,
-  savePackFromStore,
   startClear,
 } from "@/lib/catalog/operations";
 import { collectImageUrls } from "@/lib/catalog/images";
 import { assertOwns } from "@/lib/catalog/pack-access";
 import { assertPublicUrl } from "@/lib/import/safe-fetch";
-import { isSlug } from "@/lib/samples/format";
-import { getIndex, getSampleMeta } from "@/lib/samples/library";
 import { AppError } from "@/lib/errors/app-error";
-import type { PackProduct, PackSummary } from "@/lib/app-data/types";
+import type { PackProduct } from "@/lib/app-data/types";
 
 const packId = z.string().min(1).max(64);
 const scope = z.enum(["all", "demo"]);
-
-export async function savePackAction(storeHash: unknown, input: unknown): Promise<Outcome<{ pack: PackSummary }>> {
-  const parsed = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(500) }).safeParse(input);
-
-  if (!parsed.success) return { ok: false, message: "Give the pack a name (up to 120 characters)." };
-
-  return runStoreAction(storeHash, "savePackAction", async (ctx) => ({ pack: await savePackFromStore(ctx, parsed.data) }));
-}
-
-// Copies one slice of a pack's images to durable storage. The UI calls it
-// repeatedly with the returned `nextOffset` until `done`. Needs no BigCommerce
-// access, only the pack and the image store.
-export async function preserveImagesAction(storeHash: unknown, input: unknown): Promise<Outcome<{ batch: PreserveImagesResult }>> {
-  const parsed = z.object({ packId, offset: z.number().int().min(0) }).safeParse(input);
-
-  if (!parsed.success) return { ok: false, message: "Invalid request." };
-
-  return runLocalAction(storeHash, "preserveImagesAction", async (ctx) => ({ batch: await preserveImages(ctx, parsed.data) }));
-}
 
 export async function restoreBatchAction(storeHash: unknown, input: unknown): Promise<Outcome<{ batch: RestoreBatchResult }>> {
   const parsed = z.object({ packId, offset: z.number().int().min(0) }).safeParse(input);
@@ -63,7 +39,7 @@ export async function previewClearAction(storeHash: unknown, input: unknown): Pr
 }
 
 export async function startClearAction(storeHash: unknown, input: unknown): Promise<Outcome<{ start: ClearStart }>> {
-  const parsed = z.object({ scope, confirmation: z.string().max(20), acceptImageLoss: z.boolean().optional() }).safeParse(input);
+  const parsed = z.object({ scope, confirmation: z.string().max(20) }).safeParse(input);
 
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
@@ -71,7 +47,7 @@ export async function startClearAction(storeHash: unknown, input: unknown): Prom
 }
 
 export async function clearBatchAction(storeHash: unknown, input: unknown): Promise<Outcome<{ batch: ClearBatchResult }>> {
-  const parsed = z.object({ backupPackId: packId, scope, ids: z.array(z.number().int().positive()).min(1).max(CLEAR_BATCH_SIZE) }).safeParse(input);
+  const parsed = z.object({ scope, ids: z.array(z.number().int().positive()).min(1).max(CLEAR_BATCH_SIZE) }).safeParse(input);
 
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
@@ -126,28 +102,6 @@ export async function getPackProductAction(storeHash: unknown, input: unknown): 
 
 const EXPORT_PAGE_SIZE = 25;
 const EXPORT_IMAGE_LIMIT = 3 * 1024 * 1024;
-
-// What the repo already holds for this slug, so the export can number the next version and update the index.
-export async function getExportContextAction(storeHash: unknown, input: unknown): Promise<Outcome<{ index: string | null; meta: string | null }>> {
-  const parsed = z.object({ packId, slug: z.string().max(64) }).safeParse(input);
-
-  if (!parsed.success || !isSlug(parsed.data.slug)) return { ok: false, message: "Use lower-case letters, numbers and dashes for the sample's name in the repo." };
-
-  const { slug } = parsed.data;
-
-  return runLocalAction(storeHash, "getExportContextAction", async (ctx) => {
-    const page = await ctx.data.getPackPage(parsed.data.packId, 0, 1);
-
-    if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.", { detail: "That pack no longer exists." });
-
-    assertOwns(page.pack, ctx.storeHash);
-
-    const index = await getIndex().catch(() => undefined);
-    const meta = await getSampleMeta(slug).catch(() => undefined);
-
-    return { index: index ? JSON.stringify(index) : null, meta: meta ? JSON.stringify(meta) : null };
-  });
-}
 
 export async function getPackExportPageAction(storeHash: unknown, input: unknown): Promise<Outcome<{ products: PackProduct[]; total: number }>> {
   const parsed = z.object({ packId, offset: z.number().int().min(0).max(100_000) }).safeParse(input);

@@ -40,7 +40,7 @@ export async function SampleDetailPage({ params, searchParams }: PageProps) {
   }
 
   return (
-    <FeaturePage itemId="sample-catalog">
+    <FeaturePage itemId="store-templates">
       {failure || !bundle ? <LoadError header="Couldn't load the sample" text={failure ?? "Unknown sample."} /> : <SampleDetailView storeHash={storeHash} bundle={bundle} history={history} historyNote={historyNote} canImport={getDataMode() !== "MOCK"} />}
     </FeaturePage>
   );

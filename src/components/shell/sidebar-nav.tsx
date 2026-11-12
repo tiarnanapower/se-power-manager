@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useParams, usePathname } from "next/navigation";
-import { BoxIcon, ClockIcon, PulseIcon, SettingsIcon, StoreIcon } from "@/components/shell/icons";
+import { BoxIcon, ClockIcon, PulseIcon, SettingsIcon, StoreIcon, TerminalIcon } from "@/components/shell/icons";
 import { BRAND } from "@/components/shell/brand";
 import { getActiveItem, NAV_GROUPS, type NavGroup, type NavIcon } from "@/components/shell/nav-items";
 import { getAppUrl } from "@/lib/routing/app-url";
@@ -14,6 +14,7 @@ const ICONS: Record<NavIcon, () => React.ReactNode> = {
   health: () => <PulseIcon />,
   activity: () => <ClockIcon />,
   settings: () => <SettingsIcon />,
+  terminal: () => <TerminalIcon />,
 };
 
 export function SidebarNav({ collapsed = false }: { collapsed?: boolean }) {
@@ -34,7 +35,7 @@ export function SidebarNav({ collapsed = false }: { collapsed?: boolean }) {
   const isOpen = (group: NavGroup) => toggled[group.id] ?? group.id === activeGroup;
 
   const renderGroup = (group: NavGroup) => {
-    const single = group.items.length === 1;
+    const single = group.items.length === 1 && !group.menu;
 
     // Minimised: one icon per group, linking to its first page.
     if (collapsed) {
@@ -86,7 +87,7 @@ export function SidebarNav({ collapsed = false }: { collapsed?: boolean }) {
         </span>
       </Link>
       <nav className="pp-nav" aria-label="Main">
-        {NAV_GROUPS.filter((group) => group.placement === "main").map(renderGroup)}
+        {NAV_GROUPS.filter((group) => group.placement === "main" && !group.hidden).map(renderGroup)}
         {!collapsed && <div className="pp-nav__label">System</div>}
         {NAV_GROUPS.filter((group) => group.placement === "system").map(renderGroup)}
       </nav>

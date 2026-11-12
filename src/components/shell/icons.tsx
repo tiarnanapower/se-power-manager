@@ -54,3 +54,6 @@ export const StoreIcon = (p: IconProps) => (
 export const ClockIcon = (p: IconProps) => (
   <Svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></Svg>
 );
+export const TerminalIcon = (p: IconProps) => (
+  <Svg {...p}><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M13 15.2h3.5" /></Svg>
+);

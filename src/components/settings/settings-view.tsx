@@ -8,7 +8,6 @@ interface Props {
   connection: { modeLabel: string; store: string; canTest: boolean };
   bigGear: { configured: boolean; storeLabel: string; repoLabel: string; githubToken: boolean; canTest: boolean };
   ai: { configured: boolean; model: string };
-  imageStorage: boolean;
 }
 
 // What the app asks for at install. Phase notes say when each is first used.
@@ -72,7 +71,7 @@ function TestButton({ label, disabled, run }: { label: string; disabled: boolean
   );
 }
 
-export function SettingsView({ storeHash, connection, bigGear, ai, imageStorage }: Props) {
+export function SettingsView({ storeHash, connection, bigGear, ai }: Props) {
   return (
     <div style={{ maxWidth: 760 }}>
       <Section title="Your store" description="The store this app is installed on. Imports and clears write here.">
@@ -93,10 +92,6 @@ export function SettingsView({ storeHash, connection, bigGear, ai, imageStorage 
         <Field label="B2B Catalyst repo">{bigGear.repoLabel}</Field>
         <Field label="GitHub token"><Pill ok={bigGear.githubToken} yes="Set" no="Not set (public repos only)" /></Field>
         <Field label="Connection check"><TestButton label="Test Big Gear" disabled={!bigGear.canTest} run={() => testBigGearConnection(storeHash)} /></Field>
-      </Section>
-
-      <Section title="Image storage" description="Where pack images are copied (Vercel Blob) so they survive the products being deleted. Without it, a backup before a clear can't restore pictures.">
-        <Field label="Status"><Pill ok={imageStorage} yes="Configured" no="Not configured (set BLOB_READ_WRITE_TOKEN)" /></Field>
       </Section>
 
       <Section title="AI" description="Used by the Import and Enrich tools. The key stays on the server.">

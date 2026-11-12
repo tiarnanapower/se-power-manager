@@ -33,7 +33,7 @@ Settings
 | Saving user email on packs and activity | Done (MULTITENANT only; empty in MOCK/STATIC) |
 | Restore & Clear: save pack, restore in batches, clear with backup | Done, tested against a fake BigCommerce catalog only |
 | Shared Catalog: publish a saved pack under your name, list published packs, "Use this pack" opens Restore with it selected, remove | Done. SQLite store tested; Postgres migration `0004_pack_publishing.sql` untested |
-| Image preservation to Vercel Blob (copy on save, gate clears on it) | Built, tested with the Blob SDK mocked. Needs `BLOB_READ_WRITE_TOKEN`; migration `0006_pack_images_state.sql` untested on Postgres |
+| Image preservation to Vercel Blob | Removed: snapshots are downloaded as zip files that carry their own images |
 | Pack cards (sample images, top categories, first names) in the Shared Catalog and pack library | Done. Migration `0005_pack_preview.sql` untested on Postgres |
 | Import, Enrich, Store Health | Placeholder pages |
 

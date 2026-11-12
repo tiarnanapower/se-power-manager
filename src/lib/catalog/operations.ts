@@ -1,19 +1,17 @@
-// Save, restore and clear: the operations behind the Personal Catalog. Each takes an
+// Restore and clear: the operations behind My Snapshots and the Import From External Site tool. Each takes an
 // explicit context (client, data store, store hash, user) so Server Actions
 // supply the real ones after authorizing, and tests supply fakes.
-import { buildPackPreview } from "@/lib/app-data/preview";
-import type { AppDataStore, ImagesState, PackProduct, PackSource, PackSummary } from "@/lib/app-data/types";
+import type { AppDataStore, PackProduct } from "@/lib/app-data/types";
 import type { BcRestApiClient } from "@/lib/bc-api-client/rest-client/types";
-import { countProducts, createModifiers, createProduct, fetchProductSummary, uploadProductImage, deleteProducts, fetchAllProductIds, fetchBrands, fetchCategories, fetchProductNames, fetchProducts } from "@/lib/catalog/catalog-api";
-import { blobImageStore } from "@/lib/catalog/image-store";
-import { checkImageReachable, collectImageUrls, dropDeadImages, isBlobUrl, type ImageCheck, type ImageStore, looksLikeImageError, rewriteProductImages, withoutImages } from "@/lib/catalog/images";
-import { buildCategoryPaths, toCreatePayload, toModifierPayloads, toPackProduct, type PackProductRaw } from "@/lib/catalog/pack-mapper";
+import { countProducts, createModifiers, createProduct, fetchProductSummary, uploadProductImage, deleteProducts, fetchAllProductIds, fetchProductNames } from "@/lib/catalog/catalog-api";
+import { checkImageReachable, dropDeadImages, type ImageCheck, looksLikeImageError, withoutImages } from "@/lib/catalog/images";
+import { toCreatePayload, toModifierPayloads, type PackProductRaw } from "@/lib/catalog/pack-mapper";
 import { assertCanUse, assertOwns } from "@/lib/catalog/pack-access";
 import { NameResolver } from "@/lib/catalog/resolvers";
-import { CLEAR_BATCH_SIZE, CLEAR_CONFIRMATION, IMAGE_BATCH_SIZE, MAX_PACK_PRODUCTS, RESTORE_BATCH_SIZE } from "@/lib/catalog/constants";
+import { CLEAR_BATCH_SIZE, CLEAR_CONFIRMATION, RESTORE_BATCH_SIZE } from "@/lib/catalog/constants";
 import { AppError } from "@/lib/errors/app-error";
 
-export { CLEAR_BATCH_SIZE, CLEAR_CONFIRMATION, IMAGE_BATCH_SIZE, MAX_PACK_PRODUCTS, RESTORE_BATCH_SIZE };
+export { CLEAR_BATCH_SIZE, CLEAR_CONFIRMATION, RESTORE_BATCH_SIZE };
 
 export interface OpsContext {
   client: BcRestApiClient;
@@ -22,12 +20,7 @@ export interface OpsContext {
   userEmail: string | null;
   // Decides whether a pack image URL still exists. Tests replace it.
   imageCheck?: ImageCheck;
-  // Copies images to durable storage. Tests replace it.
-  imageStore?: ImageStore;
 }
-
-// What the operations that don't touch BigCommerce need.
-export type DataContext = Pick<OpsContext, "data" | "storeHash" | "userEmail" | "imageStore">;
 
 export type ClearScope = "all" | "demo";
 
@@ -45,145 +38,6 @@ function reasonFor(error: unknown): string {
   }
 
   return "Unexpected error.";
-}
-
-// ---- Save ------------------------------------------------------------------
-
-export async function savePackFromStore(ctx: OpsContext, options: { name: string; description: string; source?: PackSource; productIds?: number[] }): Promise<PackSummary> {
-  const { client, data, storeHash, userEmail } = ctx;
-  const products = await fetchProducts(client, options.productIds);
-
-  if (products.length === 0) throw new AppError("VALIDATION", "There are no products to save.");
-  if (products.length > MAX_PACK_PRODUCTS) throw new AppError("VALIDATION", `A pack can hold up to ${MAX_PACK_PRODUCTS} products; this store has ${products.length}.`);
-
-  const [categories, brands] = await Promise.all([fetchCategories(client), fetchBrands(client)]);
-  const context = {
-    categoryPaths: buildCategoryPaths(categories),
-    brandNames: new Map(brands.map((brand) => [brand.id, brand.name])),
-    // Pick lists name other products; they are saved as SKU/name refs and rebuilt after the import.
-    productRefs: new Map(products.map((product) => [product.id, { sku: typeof product.sku === "string" && product.sku ? product.sku : null, name: product.name }])),
-  };
-  const packProducts = products.map((product) => toPackProduct(product, context));
-  // Images get copied in a second, batched step (see preserveImages). Until then
-  // the pack is "pending"; with nowhere to copy to, it is "skipped".
-  const hasImages = packProducts.some((product) => collectImageUrls(product).length > 0);
-  const imagesState: ImagesState = !hasImages ? "preserved" : (ctx.imageStore ?? blobImageStore).configured() ? "pending" : "skipped";
-  const pack = await data.savePack({
-    name: options.name,
-    description: options.description,
-    source: options.source ?? "store",
-    createdByEmail: userEmail,
-    storeHash,
-    products: packProducts,
-    imagesState,
-  });
-
-  await data.logActivity({ storeHash, userEmail, kind: "catalog.save-pack", summary: `Saved ${pack.productCount} products as pack "${pack.name}".`, status: "success" });
-
-  return pack;
-}
-
-// ---- Preserve images -------------------------------------------------------
-
-export interface PreserveImagesResult {
-  total: number;
-  nextOffset: number;
-  copied: number;
-  // Images that could not be copied (already gone, too large, not an image).
-  failed: number;
-  done: boolean;
-  // Set once the last batch has run.
-  state?: ImagesState;
-}
-
-const COPY_CONCURRENCY = 5;
-
-async function inGroups<T, R>(items: T[], size: number, run: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
-
-  for (let start = 0; start < items.length; start += size) out.push(...(await Promise.all(items.slice(start, start + size).map(run))));
-
-  return out;
-}
-
-// Copies one slice of a pack's images to durable storage and rewrites the pack
-// to point at the copies. Safe to repeat: images already copied are skipped, so
-// an interrupted run just resumes.
-export async function preserveImages(ctx: DataContext, options: { packId: string; offset: number; limit?: number }): Promise<PreserveImagesResult> {
-  const { data } = ctx;
-  const store = ctx.imageStore ?? blobImageStore;
-  const limit = Math.min(options.limit ?? IMAGE_BATCH_SIZE, IMAGE_BATCH_SIZE);
-  const page = await data.getPackPage(options.packId, options.offset, limit);
-
-  if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.");
-
-  assertOwns(page.pack, ctx.storeHash);
-
-  if (!store.configured()) throw new AppError("VALIDATION", "Image storage isn't configured. Set BLOB_READ_WRITE_TOKEN on the server.");
-
-  const urls = [...new Set(page.products.flatMap(collectImageUrls))].filter((url) => !isBlobUrl(url));
-  const copies = new Map<string, string>();
-  let failed = 0;
-
-  await inGroups(urls, COPY_CONCURRENCY, async (url) => {
-    const copy = await store.preserve(url);
-
-    if (copy) copies.set(url, copy);
-    else failed += 1;
-  });
-
-  if (copies.size) await data.updatePackProducts(options.packId, options.offset, page.products.map((product) => rewriteProductImages(product, copies)));
-
-  const result: PreserveImagesResult = { total: page.pack.productCount, nextOffset: options.offset + page.products.length, copied: copies.size, failed, done: false };
-
-  result.done = result.nextOffset >= result.total || page.products.length === 0;
-
-  if (result.done) result.state = await finalizeImages(ctx, options.packId);
-
-  return result;
-}
-
-// Looks at the whole pack once copying has finished: marks it preserved if every
-// image is a durable copy, partial otherwise, and refreshes the card preview so
-// it shows the durable copies.
-export async function finalizeImages(ctx: DataContext, packId: string): Promise<ImagesState> {
-  const { data, storeHash, userEmail } = ctx;
-  const PAGE = 200;
-  const light: PackProduct[] = [];
-  let remote = 0;
-  let durable = 0;
-  let name = "";
-
-  for (let offset = 0; ; offset += PAGE) {
-    const page = await data.getPackPage(packId, offset, PAGE);
-
-    if (!page) throw new AppError("NOT_FOUND", "That pack no longer exists.");
-
-    assertOwns(page.pack, ctx.storeHash);
-
-    name = page.pack.name;
-
-    for (const product of page.products) {
-      for (const url of collectImageUrls(product)) (isBlobUrl(url) ? durable++ : remote++);
-
-      light.push({ ...product, raw: {} });
-    }
-
-    if (offset + PAGE >= page.pack.productCount || page.products.length === 0) break;
-  }
-
-  const state: ImagesState = remote === 0 ? "preserved" : "partial";
-
-  await data.setPackImages(packId, state, buildPackPreview(light));
-  await data.logActivity({
-    storeHash,
-    userEmail,
-    kind: "catalog.preserve-images",
-    summary: `Copied images for pack "${name}" to durable storage: ${durable} saved${remote ? `, ${remote} could not be copied (already gone)` : ""}.`,
-    status: remote ? "partial" : "success",
-  });
-
-  return state;
 }
 
 // ---- Restore ---------------------------------------------------------------
@@ -365,81 +219,51 @@ export async function restoreProducts(ctx: OpsContext, slice: RestoreSlice): Pro
 
 export interface ClearPreview {
   count: number;
+  // Up to five names, so it is clear what would go.
   sample: string[];
-  // False when images can't be backed up, so a clear would lose them for good.
-  canPreserveImages: boolean;
 }
 
 export async function previewClear(ctx: OpsContext, scope: ClearScope): Promise<ClearPreview> {
   const { client, data, storeHash } = ctx;
-  const canPreserveImages = (ctx.imageStore ?? blobImageStore).configured();
 
   if (scope === "all") {
     const [count, sample] = await Promise.all([countProducts(client), fetchProductNames(client)]);
 
-    return { count, sample: sample.map((product) => product.name), canPreserveImages };
+    return { count, sample: sample.map((product) => product.name) };
   }
 
   const ids = await data.listDemoProductIds(storeHash);
 
-  if (ids.length === 0) return { count: 0, sample: [], canPreserveImages };
+  if (ids.length === 0) return { count: 0, sample: [] };
 
   // Some may have been deleted in the control panel since; only count the ones that remain.
   const existing = await fetchProductNames(client, ids, 250);
 
-  return { count: existing.length, sample: existing.slice(0, 5).map((product) => product.name), canPreserveImages };
+  return { count: existing.length, sample: existing.slice(0, 5).map((product) => product.name) };
 }
 
 export interface ClearStart {
-  backup: { id: string; name: string; productCount: number; imagesState: ImagesState } | null;
   ids: number[];
 }
 
-// Step one of a clear: save everything that is about to be deleted as a pack,
-// and hand back the ids to delete. Deleting is refused until a backup exists
-// (see clearBatch), so this is the only way in.
-export async function startClear(ctx: OpsContext, options: { scope: ClearScope; confirmation: string; acceptImageLoss?: boolean }): Promise<ClearStart> {
+// Step one of a clear: check the confirmation and say which products would go. The app makes the
+// customer download a snapshot of exactly these products before it asks to delete them.
+export async function startClear(ctx: OpsContext, options: { scope: ClearScope; confirmation: string }): Promise<ClearStart> {
   const { client, data, storeHash } = ctx;
 
   if (options.confirmation !== CLEAR_CONFIRMATION) throw new AppError("VALIDATION", `Type ${CLEAR_CONFIRMATION} to confirm.`);
 
-  // Without somewhere to copy images to, the backup can only link to images that
-  // BigCommerce deletes along with the products. Make that an explicit choice.
-  if (!(ctx.imageStore ?? blobImageStore).configured() && !options.acceptImageLoss) {
-    throw new AppError("VALIDATION", "Product images can't be backed up here, so clearing would lose them permanently. Tick the box to accept that, or set BLOB_READ_WRITE_TOKEN.");
-  }
-
-  const targetIds = options.scope === "all" ? await fetchAllProductIds(client) : await data.listDemoProductIds(storeHash);
-
-  if (targetIds.length === 0) return { backup: null, ids: [] };
-
-  const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
-  const backup = await savePackFromStore(ctx, {
-    name: `Backup before clear (${options.scope}) · ${storeHash} · ${stamp}`,
-    description: "Saved automatically before a bulk clear.",
-    source: "backup",
-    productIds: targetIds,
-  });
-
-  // The backup holds what actually existed, which can be fewer than recorded.
-  return { backup: { id: backup.id, name: backup.name, productCount: backup.productCount, imagesState: backup.imagesState }, ids: targetIds };
+  return { ids: options.scope === "all" ? await fetchAllProductIds(client) : await data.listDemoProductIds(storeHash) };
 }
 
 export interface ClearBatchResult {
   deleted: number;
 }
 
-export async function clearBatch(ctx: OpsContext, options: { backupPackId: string; ids: number[]; scope: ClearScope }): Promise<ClearBatchResult> {
+export async function clearBatch(ctx: OpsContext, options: { ids: number[]; scope: ClearScope }): Promise<ClearBatchResult> {
   const { client, data, storeHash, userEmail } = ctx;
 
   if (options.ids.length === 0 || options.ids.length > CLEAR_BATCH_SIZE) throw new AppError("VALIDATION", `Delete between 1 and ${CLEAR_BATCH_SIZE} products at a time.`);
-
-  const backup = await data.getPackPage(options.backupPackId, 0, 1);
-
-  if (!backup) throw new AppError("VALIDATION", "Clearing requires a saved backup pack first.");
-
-  assertOwns(backup.pack, storeHash);
-  if (backup.pack.imagesState === "pending") throw new AppError("VALIDATION", "The backup's images haven't been copied yet. Finish that first so they aren't lost.");
 
   await deleteProducts(client, options.ids);
   await data.forgetDemoProducts(storeHash, options.ids);
@@ -447,9 +271,8 @@ export async function clearBatch(ctx: OpsContext, options: { backupPackId: strin
     storeHash,
     userEmail,
     kind: "catalog.clear",
-    summary: `Cleared ${options.ids.length} products (${options.scope === "all" ? "whole catalog" : "demo-created only"}). Backup: "${backup.pack.name}".`,
+    summary: `Cleared ${options.ids.length} products (${options.scope === "all" ? "whole catalog" : "demo-created only"}) after downloading a snapshot of them.`,
     status: "success",
-    undo: { packId: options.backupPackId },
   });
 
   return { deleted: options.ids.length };

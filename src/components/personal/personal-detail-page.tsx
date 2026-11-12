@@ -2,8 +2,6 @@ import { FeaturePage, LoadError } from "@/components/features/ui";
 import { PersonalDetailView, type PackProductSummary } from "@/components/personal/personal-detail-view";
 import type { PackSummary } from "@/lib/app-data/types";
 import { getAppDataStore } from "@/lib/app-data/get-app-data-store";
-import { getDataMode } from "@/lib/bc-api-client/data-mode";
-import { blobImageStore } from "@/lib/catalog/image-store";
 import { effectiveStoreHash, ownsPack } from "@/lib/catalog/pack-access";
 import type { PackProductRaw } from "@/lib/catalog/pack-mapper";
 import { toSafeMessage } from "@/lib/errors/app-error";
@@ -45,8 +43,8 @@ export async function PersonalDetailPage({ params }: PageProps) {
   }
 
   return (
-    <FeaturePage itemId="personal-catalog">
-      {failure || !pack ? <LoadError header="Couldn't load the pack" text={failure ?? "That pack no longer exists."} /> : <PersonalDetailView storeHash={storeHash} pack={pack} products={products} canWrite={getDataMode() !== "MOCK"} imageStorage={blobImageStore.configured()} />}
+    <FeaturePage itemId="my-snapshots">
+      {failure || !pack ? <LoadError header="Couldn't load the pack" text={failure ?? "That pack no longer exists."} /> : <PersonalDetailView storeHash={storeHash} pack={pack} products={products} />}
     </FeaturePage>
   );
 }

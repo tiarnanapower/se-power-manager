@@ -1,4 +1,4 @@
-// A minimal ZIP writer (stored, no compression) so the Personal Catalog export can hand over a single
+// A minimal ZIP writer (stored, no compression) so the snapshot download can hand over a single
 // file without a dependency. Images are already compressed and the JSON is small. Runs in the browser.
 const TABLE = (() => {
   const table = new Uint32Array(256);

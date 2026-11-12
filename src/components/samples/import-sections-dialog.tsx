@@ -1,20 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { finishSamplePickListsAction, importSampleBatchAction, importSampleSectionAction } from "@/app/store/[storeHash]/catalog/samples/actions";
+import type { ImportSource } from "@/components/samples/import-source";
 import { Modal } from "@/components/samples/modal";
-import { SAMPLE_SECTIONS, sectionLabel, type SampleManifest, type SampleSectionId } from "@/lib/samples/format";
+import { SAMPLE_SECTIONS, sectionLabel, type SampleSectionId } from "@/lib/samples/format";
 
 interface Props {
-  storeHash: string | undefined;
-  // How many products the catalog has, so the bar can show before the first batch returns.
-  productCount: number;
-  slug: string;
-  name: string;
-  version: string;
-  manifest: SampleManifest;
-  languages: string[];
-  defaultLanguage: string;
+  source: ImportSource;
   onClose: () => void;
 }
 
@@ -23,7 +15,8 @@ type Phase = "choose" | "running" | "done";
 const LANGUAGE_NAMES: Record<string, string> = { en: "English", fr: "French", es: "Spanish", it: "Italian", de: "German", pt: "Portuguese", nl: "Dutch", ja: "Japanese" };
 const languageName = (code: string) => LANGUAGE_NAMES[code] ?? code.toUpperCase();
 
-export function ImportSectionsDialog({ storeHash, productCount, slug, name, version, manifest, languages, defaultLanguage, onClose }: Props) {
+export function ImportSectionsDialog({ source, onClose }: Props) {
+  const { productCount, name, version, manifest, languages, defaultLanguage } = source;
   const [selected, setSelected] = useState<Set<SampleSectionId>>(new Set(SAMPLE_SECTIONS.filter((section) => section.defaultChecked).map((section) => section.id)));
   const [language, setLanguage] = useState(defaultLanguage);
   const [phase, setPhase] = useState<Phase>("choose");
@@ -67,7 +60,7 @@ export function ImportSectionsDialog({ storeHash, productCount, slug, name, vers
             break;
           }
 
-          const result = await importSampleBatchAction(storeHash, { slug, version, offset });
+          const result = await source.importBatch(offset);
 
           if (!result.ok) {
             setError(result.message);
@@ -95,7 +88,7 @@ export function ImportSectionsDialog({ storeHash, productCount, slug, name, vers
           setStage("Linking pick lists");
 
           for (let offset = 0; ;) {
-            const result = await finishSamplePickListsAction(storeHash, { slug, version, offset });
+            const result = await source.finishPickLists(offset);
 
             if (!result.ok) {
               notes.push(`Pick lists: ${result.message}`);
@@ -120,7 +113,7 @@ export function ImportSectionsDialog({ storeHash, productCount, slug, name, vers
 
         setStage(`Importing ${sectionLabel(id)}`);
 
-        const done = await importSampleSectionAction(storeHash, { slug, version, section: id });
+        const done = await source.importSection(id);
 
         if (!done.ok) {
           notes.push(`${sectionLabel(id)}: ${done.message}`);

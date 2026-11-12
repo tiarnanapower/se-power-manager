@@ -1,0 +1,14 @@
+import { Suspense } from "react";
+import { AuthorizedPage } from "@/components/layout/authorized-page";
+import { ContentFallback } from "@/components/layout/content-fallback";
+import { DeployCatalystPage } from "@/components/utilities/deploy-catalyst-page";
+
+type PageProps = Omit<React.ComponentProps<typeof AuthorizedPage>, "pageComponent">;
+
+export default function Page(props: PageProps) {
+  return (
+    <Suspense fallback={<ContentFallback />}>
+      <AuthorizedPage {...props} pageComponent={DeployCatalystPage} />
+    </Suspense>
+  );
+}

@@ -1,5 +1,5 @@
 // Turns store-agnostic products into the files of a sample version (see format.ts). Shared by the
-// capture script (products read from a BigCommerce store) and the Personal Catalog export (products
+// capture script (products read from a BigCommerce store) and the snapshot download (products
 // read from a saved pack), so both produce exactly the same layout. Free of server-only code and of
 // node-only APIs, so it also runs in the browser.
 import type { PackProduct } from "@/lib/app-data/types";

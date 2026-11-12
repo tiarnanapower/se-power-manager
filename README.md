@@ -28,7 +28,6 @@ See `.env.example`. The parts specific to this app:
 | `BIG_GEAR_B2B_TOKEN` | Only if B2B uses a different token |
 | `BIG_GEAR_B2B_REPO`, `BIG_GEAR_B2B_REPO_REF`, `GITHUB_TOKEN` | The custom B2B Catalyst repo (`owner/repo`) |
 | `PORTKEY_API_KEY`, `PORTKEY_MODEL` | AI gateway for Import and Enrich |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token. Pack images are copied there when a pack is saved, so a backup can restore pictures after the products are deleted |
 
 Install, OAuth and deployment variables are unchanged from the starter; see
 `docs/INSTALL-ON-VERCEL.md` and `docs/VERCEL-DEPLOYMENT.md`.

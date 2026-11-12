@@ -1,6 +1,5 @@
 import { RestoreView } from "@/components/restore/restore-view";
 import { FeaturePage, LoadError } from "@/components/features/ui";
-import { blobImageStore } from "@/lib/catalog/image-store";
 import { effectiveStoreHash } from "@/lib/catalog/pack-access";
 import { getAppDataStore } from "@/lib/app-data/get-app-data-store";
 import { getDataMode } from "@/lib/bc-api-client/data-mode";
@@ -13,10 +12,8 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export async function RestorePage({ params, searchParams }: PageProps) {
+export async function RestorePage({ params }: PageProps) {
   const raw = (await params).storeHash;
-  const rawPack = (await searchParams).pack;
-  const requestedPack = Array.isArray(rawPack) ? rawPack[0] : rawPack;
   const storeHash = Array.isArray(raw) ? raw[0] : raw;
   let packs: PackSummary[] = [];
   let failure: string | undefined;
@@ -32,8 +29,8 @@ export async function RestorePage({ params, searchParams }: PageProps) {
   }
 
   return (
-    <FeaturePage itemId="personal-catalog">
-      {failure ? <LoadError header="Couldn't load packs" text={failure} /> : <RestoreView storeHash={storeHash} packs={packs} canWrite={getDataMode() !== "MOCK"} imageStorage={blobImageStore.configured()} initialPackId={packs.some((pack) => pack.id === requestedPack) ? requestedPack : undefined} />}
+    <FeaturePage itemId="my-snapshots">
+      {failure ? <LoadError header="Couldn't load packs" text={failure} /> : <RestoreView storeHash={storeHash} packs={packs} canWrite={getDataMode() !== "MOCK"} />}
     </FeaturePage>
   );
 }

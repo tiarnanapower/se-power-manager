@@ -1,5 +1,4 @@
 import { SettingsView } from "@/components/settings/settings-view";
-import { blobImageStore } from "@/lib/catalog/image-store";
 import { getBigGearStatus } from "@/lib/big-gear/config";
 import { getDataMode } from "@/lib/bc-api-client/data-mode";
 
@@ -26,7 +25,6 @@ export async function SettingsPage({ params }: PageProps) {
         canTest: mode !== "MOCK",
       }}
       bigGear={{ configured: gear.storeConfigured, storeLabel: gear.storeLabel, repoLabel: gear.repoLabel, githubToken: gear.githubTokenConfigured, canTest: mode !== "MOCK" && gear.storeConfigured }}
-      imageStorage={blobImageStore.configured()}
       ai={{ configured: Boolean(process.env.PORTKEY_API_KEY), model: process.env.PORTKEY_MODEL ?? "Not set" }}
     />
   );

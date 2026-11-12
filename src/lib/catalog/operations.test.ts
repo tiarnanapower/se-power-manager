@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAppDataStore } from "@/lib/app-data/memory-store";
 import type { ApiMutationOptions, ApiRequestOptions, ApiResponse, BcRestApiClient } from "@/lib/bc-api-client/rest-client/types";
 import { AppError } from "@/lib/errors/app-error";
-import type { ImageStore } from "@/lib/catalog/images";
-import { CLEAR_CONFIRMATION, clearBatch, preserveImages, previewClear, restoreBatch, savePackFromStore, startClear, type OpsContext } from "@/lib/catalog/operations";
-import { toCreatePayload } from "@/lib/catalog/pack-mapper";
+import { fetchBrands, fetchCategories, fetchProducts } from "@/lib/catalog/catalog-api";
+import { CLEAR_CONFIRMATION, clearBatch, previewClear, restoreBatch, startClear, type OpsContext } from "@/lib/catalog/operations";
+import { buildCategoryPaths, toCreatePayload, toPackProduct } from "@/lib/catalog/pack-mapper";
 
 type Row = Record<string, unknown> & { id: number };
 
@@ -132,25 +132,19 @@ function seed(store: FakeStore) {
 }
 
 // The default image check treats nothing as dead; tests that need dead images pass their own.
-// A stand-in for Vercel Blob: "copies" an image by moving it to a blob-looking URL, unless it is marked gone.
-function fakeImageStore(configured = true): ImageStore & { copied: string[] } {
-  const copied: string[] = [];
-
-  return {
-    copied,
-    configured: () => configured,
-    async preserve(url) {
-      if (url.includes("gone.example")) return null;
-
-      copied.push(url);
-
-      return `https://store1.public.blob.vercel-storage.com/pack-images/${encodeURIComponent(url.split("/").pop() ?? "x")}`;
-    },
-  };
+function context(client: FakeStore, storeHash = "src1", imageCheck: OpsContext["imageCheck"] = async () => true): OpsContext {
+  return { client, data: memoryAppDataStore, storeHash, userEmail: "se@example.com", imageCheck };
 }
 
-function context(client: FakeStore, storeHash = "src1", imageCheck: OpsContext["imageCheck"] = async () => true, imageStore: ImageStore = fakeImageStore()): OpsContext {
-  return { client, data: memoryAppDataStore, storeHash, userEmail: "se@example.com", imageCheck, imageStore };
+// Saves a fake store's products as a pack, the way the Import From External Site tool stages them.
+async function savePackFromStore(ctx: OpsContext, options: { name: string; description: string }) {
+  const [products, categories, brands] = await Promise.all([fetchProducts(ctx.client), fetchCategories(ctx.client), fetchBrands(ctx.client)]);
+
+  if (products.length === 0) throw new Error("There are no products to save.");
+
+  const mapContext = { categoryPaths: buildCategoryPaths(categories), brandNames: new Map(brands.map((brand) => [brand.id, brand.name])) };
+
+  return ctx.data.savePack({ name: options.name, description: options.description, source: "store", createdByEmail: ctx.userEmail, storeHash: ctx.storeHash, products: products.map((product) => toPackProduct(product, mapContext)) });
 }
 
 // Packs are private to the store that saved them, so tests that restore a pack into a
@@ -312,116 +306,6 @@ describe("restore with images that no longer exist", () => {
   });
 });
 
-describe("preserving images", () => {
-  function storeWithImages() {
-    const source = new FakeStore();
-
-    source.products.push(
-      { id: 1, name: "Tent", sku: "T", price: 1, type: "physical", weight: 1, categories: [], variants: [{ sku: "T-1", image_url: "https://cdn.example/v.jpg", option_values: [{ option_display_name: "Colour", label: "Red" }] }], images: [{ url_zoom: "https://cdn.example/a.jpg", is_thumbnail: true, sort_order: 0 }, { url_zoom: "https://gone.example/b.jpg", sort_order: 1 }] } as Row,
-      { id: 2, name: "Lamp", sku: "L", price: 1, type: "physical", weight: 1, categories: [], variants: [], images: [{ url_zoom: "https://cdn.example/c.jpg", is_thumbnail: true, sort_order: 0 }] } as Row,
-      { id: 3, name: "Plain", sku: "P", price: 1, type: "physical", weight: 1, categories: [], variants: [], images: [] } as Row,
-    );
-
-    return source;
-  }
-
-  it("starts a pack as pending when it has images and storage is configured, skipped when not, preserved when it has none", async () => {
-    const source = storeWithImages();
-
-    expect((await savePackFromStore(context(source), { name: "a", description: "" })).imagesState).toBe("pending");
-    expect((await savePackFromStore(context(source, "src1", undefined, fakeImageStore(false)), { name: "b", description: "" })).imagesState).toBe("skipped");
-
-    const bare = new FakeStore();
-
-    bare.products.push({ id: 1, name: "Plain", sku: "P", price: 1, type: "physical", weight: 1, categories: [], variants: [], images: [] } as Row);
-    expect((await savePackFromStore(context(bare), { name: "c", description: "" })).imagesState).toBe("preserved");
-  });
-
-  it("copies product and variant images in batches, rewrites the pack, and marks it partial when one was already gone", async () => {
-    const images = fakeImageStore();
-    const ctx = context(storeWithImages(), "src1", undefined, images);
-    const pack = await savePublished(ctx, { name: "p", description: "" });
-    const first = await preserveImages(ctx, { packId: pack.id, offset: 0, limit: 2 });
-
-    expect(first).toMatchObject({ copied: 3, failed: 1, nextOffset: 2, done: false });
-    expect(first.state).toBeUndefined();
-
-    const last = await preserveImages(ctx, { packId: pack.id, offset: first.nextOffset });
-
-    expect(last).toMatchObject({ copied: 0, done: true, state: "partial" });
-
-    const saved = await memoryAppDataStore.getPack(pack.id);
-    const tent = saved!.products[0].raw as { images: { url: string }[]; variants: { image_url?: string }[] };
-
-    expect(tent.images.map((image) => image.url)).toEqual([expect.stringContaining("blob.vercel-storage.com"), "https://gone.example/b.jpg"]);
-    expect(tent.variants[0].image_url).toContain("blob.vercel-storage.com");
-    expect(saved!.products[0].imageUrls[0]).toContain("blob.vercel-storage.com");
-    // The card preview now shows the durable copies.
-    expect(saved!.preview.images.every((url) => url.includes("blob.vercel-storage.com"))).toBe(true);
-    expect((await memoryAppDataStore.listPacks())[0].imagesState).toBe("partial");
-  });
-
-  it("is resumable: images already copied are not copied again, and a clean pack ends up preserved", async () => {
-    const source = storeWithImages();
-
-    source.products[0].images = [{ url_zoom: "https://cdn.example/a.jpg", is_thumbnail: true, sort_order: 0 }];
-
-    const images = fakeImageStore();
-    const ctx = context(source, "src1", undefined, images);
-    const pack = await savePublished(ctx, { name: "p", description: "" });
-
-    await preserveImages(ctx, { packId: pack.id, offset: 0 });
-    const copiedOnce = images.copied.length;
-    const again = await preserveImages(ctx, { packId: pack.id, offset: 0 });
-
-    expect(images.copied).toHaveLength(copiedOnce);
-    expect(again).toMatchObject({ copied: 0, failed: 0, state: "preserved" });
-  });
-
-  it("needs storage to be configured", async () => {
-    const ctx = context(storeWithImages(), "src1", undefined, fakeImageStore(false));
-    const pack = await savePublished(ctx, { name: "p", description: "" });
-
-    await expect(preserveImages(ctx, { packId: pack.id, offset: 0 })).rejects.toThrow("BLOB_READ_WRITE_TOKEN");
-  });
-
-  it("makes a clear refuse to run without durable image storage unless the loss is accepted", async () => {
-    const store = storeWithImages();
-    const ctx = context(store, "src1", undefined, fakeImageStore(false));
-
-    await expect(startClear(ctx, { scope: "all", confirmation: CLEAR_CONFIRMATION })).rejects.toThrow("BLOB_READ_WRITE_TOKEN");
-    expect(await memoryAppDataStore.listPacks()).toHaveLength(0);
-
-    const started = await startClear(ctx, { scope: "all", confirmation: CLEAR_CONFIRMATION, acceptImageLoss: true });
-
-    expect(started.backup?.imagesState).toBe("skipped");
-    await clearBatch(ctx, { backupPackId: started.backup!.id, ids: started.ids, scope: "all" });
-    expect(store.products).toHaveLength(0);
-  });
-
-  it("round trip: images survive deleting the products, because the pack holds durable copies", async () => {
-    const source = storeWithImages();
-
-    source.products[0].images = [{ url_zoom: "https://cdn.example/a.jpg", is_thumbnail: true, sort_order: 0 }];
-
-    const ctx = context(source);
-    const started = await startClear(ctx, { scope: "all", confirmation: CLEAR_CONFIRMATION });
-
-    await preserveImages(ctx, { packId: started.backup!.id, offset: 0 });
-    await clearBatch(ctx, { backupPackId: started.backup!.id, ids: started.ids, scope: "all" });
-
-    // After the clear, the source CDN no longer has the pictures; only the copies do.
-    const alive = async (url: string) => url.includes("blob.vercel-storage.com");
-    const target = new FakeStore();
-    // A backup is restored into the store that made it.
-    const result = await restoreBatch(context(target, "src1", alive), { packId: started.backup!.id, offset: 0 });
-
-    expect(result).toMatchObject({ created: 3, failed: 0, imagesMissing: 0 });
-    expect((target.products.find((p) => p.name === "Tent")?.images as unknown[]).length).toBe(1);
-    expect((target.products.find((p) => p.name === "Lamp")?.images as unknown[]).length).toBe(1);
-  });
-});
-
 describe("toCreatePayload", () => {
   it("never carries source ids and defaults required fields", () => {
     const payload = toCreatePayload({ name: "X", sku: null, price: null, description: null, imageUrls: [], categoryPaths: [], raw: {} }, { brandId: undefined, categoryIds: [] });
@@ -439,8 +323,7 @@ describe("clear", () => {
 
     expect(await previewClear(context(store), "all")).toMatchObject({ count: 3 });
     // 999 is recorded but no longer exists in the store, so it isn't counted.
-    expect(await previewClear(context(store), "demo")).toEqual({ count: 1, sample: ["Shirt"], canPreserveImages: true });
-    expect(await previewClear(context(store, "src1", undefined, fakeImageStore(false)), "demo")).toMatchObject({ canPreserveImages: false });
+    expect(await previewClear(context(store), "demo")).toEqual({ count: 1, sample: ["Shirt"] });
   });
 
   it("requires the typed confirmation", async () => {
@@ -451,46 +334,23 @@ describe("clear", () => {
     expect(store.products).toHaveLength(3);
   });
 
-  it("saves a backup first, then deletes in batches, and the backup restores everything", async () => {
+  it("says which products to delete, then deletes them in batches", async () => {
     const store = new FakeStore();
 
     seed(store);
 
     const started = await startClear(context(store), { scope: "all", confirmation: CLEAR_CONFIRMATION });
 
-    expect(started.backup?.productCount).toBe(3);
-    expect(started.backup?.imagesState).toBe("pending");
-    expect((await memoryAppDataStore.listPacks({ includeBackups: false }))).toHaveLength(0);
+    expect(started.ids).toEqual([1, 2, 3]);
     expect(store.products).toHaveLength(3);
 
-    // Deleting waits until the backup's images are safely copied.
-    await expect(clearBatch(context(store), { backupPackId: started.backup!.id, ids: started.ids, scope: "all" })).rejects.toThrow("images haven't been copied");
-    expect(store.products).toHaveLength(3);
-
-    await preserveImages(context(store), { packId: started.backup!.id, offset: 0 });
-    await clearBatch(context(store), { backupPackId: started.backup!.id, ids: started.ids, scope: "all" });
+    await clearBatch(context(store), { ids: started.ids, scope: "all" });
 
     expect(store.products).toHaveLength(0);
 
-    const restored = new FakeStore();
-
-    restored.categories = [...store.categories];
-    restored.brands = [...store.brands];
-
-    await restoreBatch(context(restored), { packId: started.backup!.id, offset: 0 });
-    expect(restored.products.map((product) => product.name)).toEqual(["Tent", "Shirt", "Lamp"]);
-
     const activity = await memoryAppDataStore.listActivity({ storeHash: "src1" });
 
-    expect(activity.some((entry) => entry.kind === "catalog.clear" && entry.undo?.packId === started.backup!.id)).toBe(true);
-  });
-
-  it("refuses to delete without an existing backup pack", async () => {
-    const store = new FakeStore();
-
-    seed(store);
-    await expect(clearBatch(context(store), { backupPackId: "missing", ids: [1], scope: "all" })).rejects.toThrow("backup");
-    expect(store.products).toHaveLength(3);
+    expect(activity.some((entry) => entry.kind === "catalog.clear")).toBe(true);
   });
 
   it("scope demo deletes only products this app created", async () => {
@@ -503,26 +363,24 @@ describe("clear", () => {
 
     expect(started.ids).toEqual([3]);
 
-    await preserveImages(context(store), { packId: started.backup!.id, offset: 0 });
-    await clearBatch(context(store), { backupPackId: started.backup!.id, ids: started.ids, scope: "demo" });
+    await clearBatch(context(store), { ids: started.ids, scope: "demo" });
 
     expect(store.products.map((product) => product.id)).toEqual([1, 2]);
     expect(await memoryAppDataStore.listDemoProductIds("src1")).toEqual([]);
   });
 
-  it("does nothing, and makes no backup, when there is nothing to clear", async () => {
+  it("has nothing to delete when no demo products were recorded", async () => {
     const store = new FakeStore();
 
     seed(store);
 
-    expect(await startClear(context(store), { scope: "demo", confirmation: CLEAR_CONFIRMATION })).toEqual({ backup: null, ids: [] });
-    expect(await memoryAppDataStore.listPacks()).toHaveLength(0);
+    expect(await startClear(context(store), { scope: "demo", confirmation: CLEAR_CONFIRMATION })).toEqual({ ids: [] });
   });
 
   it("rejects oversized delete batches", async () => {
     const store = new FakeStore();
 
-    await expect(clearBatch(context(store), { backupPackId: "x", ids: Array.from({ length: 251 }, (_, i) => i), scope: "all" })).rejects.toThrow("between 1 and 250");
+    await expect(clearBatch(context(store), { ids: Array.from({ length: 251 }, (_, i) => i), scope: "all" })).rejects.toThrow("between 1 and 250");
   });
 });
 
@@ -569,21 +427,12 @@ describe("pack privacy between stores", () => {
     expect((await memoryAppDataStore.listPacks({ ownedBy: "storeA" })).map((entry) => entry.id)).toEqual([pack.id]);
     expect(await memoryAppDataStore.listPacks({ ownedBy: "storeB" })).toEqual([]);
     await expect(restoreBatch(context(new FakeStore(), "storeB"), { packId: pack.id, offset: 0 })).rejects.toThrow("no longer exists");
-    await expect(preserveImages(context(new FakeStore(), "storeB"), { packId: pack.id, offset: 0 })).rejects.toThrow("no longer exists");
   });
 
-  it("lets other stores restore a published pack but not change it", async () => {
+  it("lets other stores restore a published pack", async () => {
     const pack = await savePublished(context(seededSource(), "storeA"), { name: "shared", description: "" });
     const other = context(new FakeStore(), "storeB");
 
     expect(await restoreBatch(other, { packId: pack.id, offset: 0 })).toMatchObject({ created: 1, failed: 0 });
-    await expect(preserveImages(other, { packId: pack.id, offset: 0 })).rejects.toThrow("Only the store that saved");
-  });
-
-  it("won't clear a store using another store's backup", async () => {
-    const backup = await savePackFromStore(context(seededSource(), "storeA"), { name: "b", description: "" });
-    const other = context(seededSource(), "storeB");
-
-    await expect(clearBatch(other, { backupPackId: backup.id, scope: "all", ids: [1] })).rejects.toThrow();
   });
 });

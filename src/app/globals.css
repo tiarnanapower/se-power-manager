@@ -850,3 +850,21 @@ body { background: var(--pp-bg); }
 .pp-nav__toggle:focus-visible { outline: 2px solid var(--pp-primary); outline-offset: 2px; }
 .pp-nav__chevron { margin-left: auto; transition: transform 0.15s; }
 .pp-nav__toggle[aria-expanded="false"] .pp-nav__chevron { transform: rotate(-90deg); }
+
+/* Deploy Catalyst Storefront */
+.pp-deploy { padding-top: 14px; }
+.pp-deploy__toggle { display: flex; gap: 12px; align-items: flex-start; margin: 4px 0 16px; cursor: pointer; font-size: 14px; }
+.pp-deploy__toggle span { display: flex; flex-direction: column; gap: 2px; }
+.pp-deploy__toggle .pp-muted { font-size: 13px; }
+.pp-deploy__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 18px; margin-bottom: 4px; }
+.pp-deploy__fields .pp-field .pp-input { max-width: none; width: 100%; box-sizing: border-box; }
+.pp-deploy__command { display: flex; gap: 12px; align-items: flex-start; }
+.pp-deploy__command pre { flex: 1; min-width: 0; margin: 0; padding: 14px 16px; overflow-x: auto; background: var(--pp-bg); border: 1px solid var(--pp-border); border-radius: 12px; font-size: 13px; line-height: 1.65; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.pp-deploy__command pre.is-placeholder { color: var(--pp-muted); }
+.pp-deploy__command .pp-btn { flex-shrink: 0; }
+@media (max-width: 700px) { .pp-deploy__command { flex-direction: column; align-items: stretch; } }
+
+/* Upload a snapshot */
+.pp-drop { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 22px; border: 1px dashed var(--pp-border); border-radius: 12px; color: var(--pp-muted); font-size: 14px; }
+.pp-drop.is-over { border-color: #8f82ff; background: rgba(122, 109, 255, 0.08); }
+.pp-drop .pp-btn { cursor: pointer; }

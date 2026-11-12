@@ -2,7 +2,7 @@
 // `path` is relative to the app root: "/store/<hash>/<path>" when installed,
 // "/<path>" on the root-level dev aliases.
 
-export type NavIcon = "catalog" | "store" | "health" | "activity" | "settings";
+export type NavIcon = "catalog" | "store" | "health" | "activity" | "settings" | "terminal";
 
 export interface NavItem {
   id: string;
@@ -19,6 +19,10 @@ export interface NavGroup {
   // Single-page groups (Store Health, Activity) render as a plain link.
   items: NavItem[];
   placement: "main" | "system";
+  // Keeps a heading with its pages underneath even when there is only one page.
+  menu?: boolean;
+  // Not shown in the menu, but its pages still work if opened by address.
+  hidden?: boolean;
 }
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -28,8 +32,8 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: "catalog",
     placement: "main",
     items: [
-      { id: "sample-catalog", title: "Sample Catalog", path: "catalog/samples", description: "Ready-made sample data for your sandbox: catalog, shipping, tax, pricing and more, versioned in GitHub." },
-      { id: "personal-catalog", title: "Personal Catalog", path: "catalog/personal", description: "Your own saved catalogs, private to this store. Save one, open it to see what is inside, restore it, export it for the sample repo, or clear your store." },
+      { id: "store-templates", title: "Store Templates", path: "catalog/samples", description: "Ready-made templates for your sandbox: catalog, shipping, tax and more settings, versioned in GitHub." },
+      { id: "my-snapshots", title: "My Snapshots", path: "catalog/personal", description: "Download a snapshot of your store as a zip, upload one to load it into a store, or clear your store. Snapshots use the same format as Store Templates." },
       { id: "import", title: "Import From External Site", path: "catalog/import", description: "Point at a customer site and let AI scrape the products, then review and push them to your store." },
     ],
   },
@@ -41,10 +45,21 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [{ id: "enrich", title: "Enrich Tool", path: "catalog/enrich", description: "Improve descriptions, SEO and attributes on products already in your store." }],
   },
   {
+    id: "utilities",
+    title: "Utilities",
+    icon: "terminal",
+    placement: "main",
+    menu: true,
+    items: [
+      { id: "deploy-catalyst", title: "Deploy Catalyst Storefront", path: "utilities/deploy-catalyst", description: "Copy-and-paste terminal commands that create a Catalyst storefront with native BigCommerce hosting, for B2B or B2C." },
+    ],
+  },
+  {
     id: "big-gear",
     title: "Big Gear",
     icon: "store",
     placement: "main",
+    hidden: true,
     items: [
       { id: "big-gear-products", title: "Product Import", path: "big-gear/products", description: "Copy products from the Big Gear demo store into your store." },
       { id: "big-gear-stencil", title: "Stencil Channel Pull", path: "big-gear/stencil", description: "Pull the Big Gear Stencil channel theme into your store." },
@@ -86,6 +101,6 @@ export function getActiveItem(pathname: string, storeHash: string | undefined): 
 
   const path = rest || DEFAULT_PATH;
 
-  // A sample's own page (catalog/samples/<name>) belongs to the Sample Catalog item.
+  // A sample's own page (catalog/samples/<name>) belongs to the Store Templates item.
   return NAV_ITEMS.find((item) => item.path === path) ?? NAV_ITEMS.find((item) => path.startsWith(`${item.path}/`));
 }
