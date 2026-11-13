@@ -81,6 +81,11 @@ describe("the Run in Claude prompt", () => {
     expect(prompt).toContain("https://app.makeswift.com/copy");
   });
 
+  it("tells Claude to use Claude in Chrome and never sign in", () => {
+    expect(prompt).toContain("Claude in Chrome browser tools");
+    expect(prompt).toContain("Never type a password");
+  });
+
   it("names the colours, the sections in order, the text and the targeted groups", () => {
     expect(prompt).toContain("Set Primary to #1A6B4A.");
     expect(prompt).toContain("1. Image Banner");

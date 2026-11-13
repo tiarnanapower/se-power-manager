@@ -103,11 +103,11 @@ function RunInClaude({ brief }: { brief: Brief }) {
   return (
     <div className="pp-card pp-section">
       <h2>Run in Claude</h2>
-      <p className="pp-section__hint">Have Claude fill in the text and colours for you. It works in your browser, so this needs the Claude in Chrome extension.</p>
+      <p className="pp-section__hint">Have Claude fill in the text and colours for you. It works in your own Chrome, so this needs the Claude in Chrome extension installed and signed in to your Claude account, and you signed in to Makeswift in that Chrome.</p>
       <ol className="pp-steps">
         <li>In Makeswift, <strong>duplicate the template site</strong> so you have your own copy. The sections are shared across a site, so never run this on the original.</li>
         <li>Open your copy and paste its address below.</li>
-        <li>Open Claude with the Claude in Chrome extension, copy the instructions and paste them in.</li>
+        <li>Open Claude (the Claude in Chrome side panel, or Claude with Chrome connected), copy the instructions and paste them in.</li>
         <li>Watch it work, check the result, and <strong>publish it yourself</strong>. The instructions tell Claude never to publish.</li>
         <li>Make the pictures and videos from the briefs above, and upload them.</li>
       </ol>
