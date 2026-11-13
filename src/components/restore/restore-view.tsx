@@ -197,7 +197,7 @@ function ClearBody({ storeHash, canWrite, picked }: { storeHash: string | undefi
           }
 
           deleted += result.step.deleted;
-          problems.push(...result.step.warnings);
+          for (const warning of result.step.warnings) if (!problems.includes(warning)) problems.push(warning);
           setNotes(problems.slice(0, 40));
 
           if (result.step.remaining === 0 || result.step.deleted === 0) break;
@@ -318,10 +318,10 @@ function ClearSection({ storeHash, canWrite }: { storeHash: string | undefined; 
 }
 
 const CLEAR_WHAT: Record<string, string> = {
-  shipping: "Deletes shipping zones and their methods. The default zone stays but loses its methods.",
-  tax: "Deletes tax rates, zones and custom tax classes. Tax settings stay as they are.",
+  shipping: "Deletes shipping zones and methods. A store must keep one zone, so the default zone stays with no methods.",
+  tax: "Deletes tax rates and zones. The default tax zone, tax classes and tax settings stay.",
   pricing: "Deletes price lists (with their prices and assignments) and extra currencies. The default currency stays.",
-  inventory: "Deletes stock locations. The default location can't be removed. Inventory settings stay.",
+  inventory: "Deletes stock locations. The default location stays. Inventory settings stay.",
   b2b: "Deletes every B2B company with its users, and custom roles. This can't be undone except from the backup.",
 };
 

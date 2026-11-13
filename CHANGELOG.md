@@ -19,9 +19,9 @@ Names changed along the way. Current names first, old names in brackets:
 ## 2026-11-12
 
 ### Clear: more sections
-- **Clear sections** can now clear **B2B Edition** (companies, then custom roles), **Pricing** (price lists and extra currencies), **Shipping** (zones and methods), **Tax** (rates, zones and custom classes) and **Inventory** (stock locations), as well as the catalog.
+- **Clear sections** can now clear **B2B Edition** (companies, then custom roles), **Pricing** (price lists and extra currencies), **Shipping** (zones and methods), **Tax** (rates and zones) and **Inventory** (stock locations), as well as the catalog.
 - Storefront, Checkout and Localization stay greyed out with the reason: they are settings and translations, which can only be replaced by importing, not deleted.
-- The same two steps apply: a snapshot of what will go is downloaded first (it now includes the chosen sections, and can have no products), then you delete. Defaults the store won't allow to be removed (the default currency, default zone, default location) are left, and anything refused is listed. **Untested against real stores.**
+- The same two steps apply: a snapshot of what will go is downloaded first (it now includes the chosen sections, and can have no products), then you delete. Things BigCommerce won't let anyone delete are left alone: the default currency, the default tax zone, tax classes, the default location, and the last shipping zone (its methods are removed). Anything else refused is listed. **Untested against real stores.**
 
 ### Wawaweewa: custom roles, quotes and orders
 - Three new tick boxes on the Wawaweewa page: **Custom roles**, **Quotes** and **Orders**. Each SE chooses what to bring in.

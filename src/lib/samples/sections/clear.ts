@@ -26,25 +26,24 @@ async function listItems(client: BcRestApiClient, section: ClearableSection, ext
   switch (section) {
     case "shipping": {
       const items: Item[] = [];
+      const zones = (await readAll(client, "/v2/shipping/zones")).filter((zone) => positiveInt(zone.id));
+      // A store must keep at least one zone: the default "rest of world" zone, or else the last one.
+      const kept = zones.find((zone) => text(zone.type) === "global") ?? zones[zones.length - 1];
 
-      for (const zone of await readAll(client, "/v2/shipping/zones")) {
-        const id = positiveInt(zone.id);
+      for (const zone of zones) {
+        const id = positiveInt(zone.id) as number;
         const label = `Shipping zone ${text(zone.name) || id}`;
-
-        if (!id) continue;
-
-        // The default "rest of world" zone can't be deleted, so only its methods go.
+        const keep = zone === kept;
         const methods = await readAll(client, `/v2/shipping/zones/${id}/methods`).catch(() => [] as JsonRecord[]);
-        const global = text(zone.type) === "global";
 
-        if (global && methods.length === 0) continue;
+        if (keep && methods.length === 0) continue;
 
         items.push({
-          label,
+          label: keep ? `${label} (its methods; the zone itself stays)` : label,
           remove: async () => {
             for (const method of methods) await client.delete(`/v2/shipping/zones/${id}/methods/${text(String(method.id))}`);
 
-            if (!global) await client.delete(`/v2/shipping/zones/${id}`);
+            if (!keep) await client.delete(`/v2/shipping/zones/${id}`);
           },
         });
       }
@@ -55,12 +54,11 @@ async function listItems(client: BcRestApiClient, section: ClearableSection, ext
     case "tax": {
       const rates = await readAll(client, "/v3/tax/rates").catch(() => [] as JsonRecord[]);
       const zones = await readAll(client, "/v3/tax/zones").catch(() => [] as JsonRecord[]);
-      const classes = await readAll(client, "/v2/tax_classes").catch(() => [] as JsonRecord[]);
 
+      // Tax classes can't be deleted through the API, and the default tax zone can't be deleted at all.
       return [
         ...rates.flatMap((row): Item[] => { const id = positiveInt(row.id); return id ? [{ label: `Tax rate ${text(row.name) || id}`, remove: () => client.delete(`/v3/tax/rates?id:in=${id}`) }] : []; }),
-        ...zones.flatMap((row): Item[] => { const id = positiveInt(row.id); return id ? [{ label: `Tax zone ${text(row.name) || id}`, remove: () => client.delete(`/v3/tax/zones?id:in=${id}`) }] : []; }),
-        ...classes.flatMap((row): Item[] => { const id = positiveInt(row.id); return id && text(row.name) !== "Default Tax Class" ? [{ label: `Tax class ${text(row.name)}`, remove: () => client.delete(`/v2/tax_classes/${id}`) }] : []; }),
+        ...zones.flatMap((row): Item[] => { const id = positiveInt(row.id); return id && id !== 1 && text(row.name) !== "Default Zone" ? [{ label: `Tax zone ${text(row.name) || id}`, remove: () => client.delete(`/v3/tax/zones?id:in=${id}`) }] : []; }),
       ];
     }
 
@@ -79,7 +77,8 @@ async function listItems(client: BcRestApiClient, section: ClearableSection, ext
     case "inventory": {
       const locations = await readAll(client, "/v3/inventory/locations").catch(() => [] as JsonRecord[]);
 
-      return locations.flatMap((row): Item[] => { const id = positiveInt(row.id); return id ? [{ label: `Location ${text(row.label) || text(row.code) || id}`, remove: () => client.delete(`/v3/inventory/locations?location_id:in=${id}`) }] : []; });
+      // The default location is the store's shipping origin and can't be deleted.
+      return locations.flatMap((row): Item[] => { const id = positiveInt(row.id); return id && text(row.code) !== "BC-LOCATION-1" && text(row.label) !== "Default location" ? [{ label: `Location ${text(row.label) || text(row.code) || id}`, remove: () => client.delete(`/v3/inventory/locations?location_id:in=${id}`) }] : []; });
     }
 
     case "b2b": {

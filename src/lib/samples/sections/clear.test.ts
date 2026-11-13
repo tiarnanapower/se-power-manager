@@ -33,7 +33,7 @@ describe("clearing other sections", () => {
     expect(["catalog", "storefront", "checkout", "localization"].some(isClearable)).toBe(false);
   });
 
-  it("removes shipping zones with their methods, but only the methods of the default zone", async () => {
+  it("removes shipping zones and methods but keeps the default zone, with its methods removed", async () => {
     const store = new Fake({
       "/v2/shipping/zones": [{ id: 1, name: "Rest of the world", type: "global" }, { id: 2, name: "US", type: "country" }],
       "/v2/shipping/zones/1/methods": [{ id: 11 }],
@@ -41,19 +41,25 @@ describe("clearing other sections", () => {
     });
 
     expect((await previewClearSection(store, "shipping")).count).toBe(2);
-
-    const step = await clearSectionStep(store, "shipping");
-
-    expect(step.deleted).toBe(2);
+    expect((await clearSectionStep(store, "shipping")).deleted).toBe(2);
     expect(store.deletes).toEqual(["/v2/shipping/zones/1/methods/11", "/v2/shipping/zones/2/methods/21", "/v2/shipping/zones/2/methods/22", "/v2/shipping/zones/2"]);
   });
 
-  it("removes tax rates, zones and custom classes, never the default class", async () => {
-    const store = new Fake({ "/v3/tax/rates": v3([{ id: 5, name: "VAT" }]), "/v3/tax/zones": v3([{ id: 3, name: "UK" }]), "/v2/tax_classes": [{ id: 0, name: "Default Tax Class" }, { id: 4, name: "Food" }] });
+  it("keeps the last zone when there is no default zone, and has nothing left to do once its methods are gone", async () => {
+    const store = new Fake({ "/v2/shipping/zones": [{ id: 7, name: "United Kingdom", type: "country" }], "/v2/shipping/zones/7/methods": [{ id: 70 }] });
+
+    await clearSectionStep(store, "shipping");
+
+    expect(store.deletes).toEqual(["/v2/shipping/zones/7/methods/70"]);
+    expect((await previewClearSection(new Fake({ "/v2/shipping/zones": [{ id: 7, name: "United Kingdom", type: "country" }] }), "shipping")).count).toBe(0);
+  });
+
+  it("removes tax rates and zones, never the default zone, and never touches tax classes", async () => {
+    const store = new Fake({ "/v3/tax/rates": v3([{ id: 5, name: "VAT" }]), "/v3/tax/zones": v3([{ id: 1, name: "Default Zone" }, { id: 3, name: "UK" }]), "/v2/tax_classes": [{ id: 4, name: "Food" }] });
 
     await clearSectionStep(store, "tax");
 
-    expect(store.deletes).toEqual(["/v3/tax/rates?id:in=5", "/v3/tax/zones?id:in=3", "/v2/tax_classes/4"]);
+    expect(store.deletes).toEqual(["/v3/tax/rates?id:in=5", "/v3/tax/zones?id:in=3"]);
   });
 
   it("removes price lists and extra currencies, never the default currency", async () => {
@@ -65,7 +71,7 @@ describe("clearing other sections", () => {
   });
 
   it("removes stock locations", async () => {
-    const store = new Fake({ "/v3/inventory/locations": v3([{ id: 6, label: "Warehouse" }]) });
+    const store = new Fake({ "/v3/inventory/locations": v3([{ id: 1, label: "Default location", code: "BC-LOCATION-1" }, { id: 6, label: "Warehouse" }]) });
 
     expect((await clearSectionStep(store, "inventory")).deleted).toBe(1);
     expect(store.deletes).toEqual(["/v3/inventory/locations?location_id:in=6"]);
