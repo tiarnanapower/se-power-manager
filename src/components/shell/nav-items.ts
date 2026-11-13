@@ -34,7 +34,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "demo-snapshots", title: "Demo Snapshots", path: "catalog/samples", description: "Ready-made demo snapshots for your sandbox: catalog, shipping, tax and more settings, versioned in GitHub." },
       { id: "my-snapshots", title: "My Snapshots", path: "catalog/personal", description: "Download a snapshot of your store as a zip, upload one to load it into a store, or clear your store. Snapshots use the same format as Demo Snapshots." },
-      { id: "import", title: "Import From External Site", path: "catalog/import", description: "Point at a customer site and let AI scrape the products, then review and push them to your store." },
+      { id: "import", title: "Import From External Site", path: "catalog/import", description: "Point at a customer site and let AI scrape the products, then review and push them to your store. Or make a site brief to fill the Makeswift template." },
     ],
   },
   {

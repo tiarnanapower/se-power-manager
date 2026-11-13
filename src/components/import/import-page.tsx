@@ -1,5 +1,5 @@
 import { FeaturePage } from "@/components/features/ui";
-import { ImportView } from "@/components/import/import-view";
+import { ImportTabs } from "@/components/import/import-tabs";
 import { getDataMode } from "@/lib/bc-api-client/data-mode";
 import { isAiConfigured } from "@/lib/ai/portkey";
 
@@ -13,7 +13,7 @@ export async function ImportPage({ params }: PageProps) {
 
   return (
     <FeaturePage itemId="import">
-      <ImportView storeHash={Array.isArray(raw) ? raw[0] : raw} aiConfigured={isAiConfigured()} canWrite={getDataMode() !== "MOCK"} />
+      <ImportTabs storeHash={Array.isArray(raw) ? raw[0] : raw} aiConfigured={isAiConfigured()} canWrite={getDataMode() !== "MOCK"} />
     </FeaturePage>
   );
 }

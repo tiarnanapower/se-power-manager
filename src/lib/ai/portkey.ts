@@ -84,13 +84,13 @@ async function postWithRetry(body: Record<string, unknown>, signal: AbortSignal 
 
 // One model turn. Reasoning effort is kept low for snappy replies; if the
 // gateway or model rejects that parameter the call is retried without it.
-export async function chatCompletion(params: { messages: ChatMessage[]; tools?: ToolDefinition[]; json?: boolean; signal?: AbortSignal }): Promise<ChatMessage> {
+export async function chatCompletion(params: { messages: ChatMessage[]; tools?: ToolDefinition[]; json?: boolean; signal?: AbortSignal; maxTokens?: number }): Promise<ChatMessage> {
   const base = {
     model: getModel(),
     messages: params.messages,
     ...(params.tools?.length ? { tools: params.tools, tool_choice: "auto" } : {}),
     ...(params.json ? { response_format: { type: "json_object" } } : {}),
-    max_completion_tokens: 4000,
+    max_completion_tokens: params.maxTokens ?? 4000,
   };
   const effort = process.env.PORTKEY_REASONING_EFFORT || "low";
   let response: Response;

@@ -18,6 +18,14 @@ Names changed along the way. Current names first, old names in brackets:
 
 ## 2026-11-12
 
+### Import From External Site: Site brief for Makeswift
+- A second tab on the Import page turns a customer's home page into a **brief for the Makeswift template**. Nothing is written to the store or to Makeswift.
+- **Brand kit:** the colours matched to the template's four swatches (Primary, Secondary, Tertiary, Neutral), heading and body fonts, logo, phone, email, address and social links, read straight from the site and its stylesheets with no AI. The page asks the SE to check them, because a stylesheet doesn't say which colour is the brand's.
+- **Copy for every section** of the template (Image Banner, Featured Categories, B2C and B2B slots and video banners, Best Sellers, Shop the look, Sign-up), within each field's length, with a copy button on each. Slots use real text over a background picture.
+- **Picture and video briefs:** for each slot, the size, an image prompt, alt text, and for videos a shot list and stock search words. The app does not generate images.
+- **Audiences:** B2C (on by default) and B2B, each with optional customer groups from the store, named on the slot's "Targeted customer groups". At least one audience always stays on.
+- **Run in Claude:** instructions to paste into Claude in Chrome that fill the SE's own copy of the template: set the colours and fonts, edit each Global component, never publish. **Untested in Makeswift: a pilot on a copy of the template is next.**
+
 ### Clear: more sections
 - **Clear sections** can now clear **B2B Edition** (companies, then custom roles), **Pricing** (price lists and extra currencies), **Shipping** (zones and methods), **Tax** (rates and zones) and **Inventory** (stock locations), as well as the catalog.
 - Storefront, Checkout and Localization stay greyed out with the reason: they are settings and translations, which can only be replaced by importing, not deleted.
